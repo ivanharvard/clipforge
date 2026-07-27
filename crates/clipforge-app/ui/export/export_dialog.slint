@@ -1,0 +1,80 @@
+import { Theme } from "../theme.slint";
+import { ExportDialogState, ExportPhase } from "../state.slint";
+import { Button, LineEdit, ProgressIndicator } from "std-widgets.slint";
+
+// Modal export dialog (DESIGN.md section 16): destination picker while
+// idle, progress bar while running, success/error summary when finished.
+export component ExportDialog inherits Rectangle {
+    background: Theme.surface;
+    border-radius: Theme.radius-panel;
+    border-width: 1px;
+    border-color: Theme.border-color;
+
+    VerticalLayout {
+        padding: Theme.space-6;
+        spacing: Theme.space-4;
+
+        Text {
+            text: "Export";
+            font-size: Theme.text-lg;
+            font-weight: 600;
+            color: Theme.text-primary;
+        }
+
+        if ExportDialogState.phase == ExportPhase.idle: HorizontalLayout {
+            spacing: Theme.space-2;
+
+            LineEdit {
+                text: ExportDialogState.destination-path;
+                placeholder-text: "Destination path";
+            }
+
+            Button {
+                text: "Browse…";
+                clicked => { ExportDialogState.browse-clicked(); }
+            }
+        }
+
+        if ExportDialogState.phase == ExportPhase.running: VerticalLayout {
+            spacing: Theme.space-2;
+
+            ProgressIndicator {
+                progress: ExportDialogState.progress;
+            }
+
+            Text {
+                text: "\{Math.round(ExportDialogState.progress * 100)}%";
+                color: Theme.text-secondary;
+                font-size: Theme.text-sm;
+            }
+        }
+
+        if ExportDialogState.phase == ExportPhase.success || ExportDialogState.phase == ExportPhase.failed: Text {
+            text: ExportDialogState.result-message;
+            color: ExportDialogState.phase == ExportPhase.success ? Theme.success : Theme.danger;
+            font-size: Theme.text-sm;
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: Theme.space-2;
+
+            if ExportDialogState.phase == ExportPhase.idle: Button {
+                text: "Export";
+                primary: true;
+                clicked => { ExportDialogState.start-clicked(); }
+            }
+
+            if ExportDialogState.phase == ExportPhase.running: Button {
+                text: "Cancel";
+                clicked => { ExportDialogState.cancel-clicked(); }
+            }
+
+            if ExportDialogState.phase == ExportPhase.success || ExportDialogState.phase == ExportPhase.failed: Button {
+                text: "Close";
+                primary: true;
+                clicked => { ExportDialogState.close-clicked(); }
+            }
+        }
+    }
+}

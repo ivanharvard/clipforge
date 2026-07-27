@@ -1,0 +1,44 @@
+import { Theme } from "../theme.slint";
+import { TransformState } from "../state.slint";
+import { PanelSection } from "../components/panel_section.slint";
+import { IconButton } from "../components/icon_button.slint";
+
+export component TransformPanel inherits PanelSection {
+    title: "Transform";
+    icon-text: "⟳";
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        IconButton {
+            icon-text: "⟲";
+            clicked => { TransformState.rotate-counter-clockwise-clicked(); }
+        }
+
+        IconButton {
+            icon-text: "⟳";
+            clicked => { TransformState.rotate-clockwise-clicked(); }
+        }
+
+        Rectangle {}
+
+        IconButton {
+            icon-text: "⇋";
+            active: TransformState.flip-horizontal;
+            clicked => { TransformState.flip-horizontal-toggled(); }
+        }
+
+        IconButton {
+            icon-text: "⇅";
+            active: TransformState.flip-vertical;
+            clicked => { TransformState.flip-vertical-toggled(); }
+        }
+
+        Rectangle {}
+
+        IconButton {
+            icon-text: "↺";
+            clicked => { TransformState.reset-clicked(); }
+        }
+    }
+}

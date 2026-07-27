@@ -1,0 +1,73 @@
+import { Theme } from "theme.slint";
+import {
+    PlaybackState,
+    TransformState,
+    CropState,
+    ResolutionState,
+    AudioState,
+    CompressState,
+    ExportDialogState,
+    ExportPhase,
+} from "state.slint";
+import { TitleBar } from "components/title_bar.slint";
+import { VideoPreview } from "preview/video_preview.slint";
+import { Sidebar } from "sidebar/sidebar.slint";
+import { ScrubberBar } from "timeline/scrubber_bar.slint";
+import { ExportDialog } from "export/export_dialog.slint";
+
+// Re-exported so Rust can reach these globals via `app.global::<T>()` —
+// Slint only generates Rust bindings for globals exported from the root
+// file passed to `slint_build::compile`.
+export {
+    Theme,
+    PlaybackState,
+    TransformState,
+    CropState,
+    ResolutionState,
+    AudioState,
+    CompressState,
+    ExportDialogState,
+    ExportPhase,
+}
+
+// Root window: top bar, preview + sidebar split, bottom scrubber bar —
+// matching the layout in the project's design plan.
+export component App inherits Window {
+    title: "ClipForge";
+    width: 1100px;
+    height: 680px;
+    background: Theme.bg;
+
+    in property <bool> has-clip: false;
+    in property <image> preview-frame;
+
+    callback open-clip-clicked <=> title-bar.open-clip-clicked;
+    callback export-clicked <=> title-bar.export-clicked;
+
+    VerticalLayout {
+        title-bar := TitleBar {}
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+
+            VideoPreview {
+                horizontal-stretch: 1;
+                has-clip: root.has-clip;
+                frame: root.preview-frame;
+            }
+
+            Sidebar {}
+        }
+
+        ScrubberBar {}
+    }
+
+    if ExportDialogState.visible: Rectangle {
+        background: #000000.with-alpha(0.4);
+
+        ExportDialog {
+            width: 400px;
+            height: 220px;
+        }
+    }
+}

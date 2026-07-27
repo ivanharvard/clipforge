@@ -1,0 +1,69 @@
+import { Theme } from "../theme.slint";
+import { CropState } from "../state.slint";
+import { PanelSection } from "../components/panel_section.slint";
+import { IconButton } from "../components/icon_button.slint";
+import { SpinBox } from "std-widgets.slint";
+
+export component CropPanel inherits PanelSection {
+    title: "Crop";
+    icon-text: "▢";
+
+    GridLayout {
+        spacing: Theme.space-2;
+
+        Row {
+            Text { text: "X"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
+            SpinBox {
+                value: CropState.x;
+                edited(v) => {
+                    CropState.x = v;
+                    CropState.changed();
+                }
+            }
+            Text { text: "Y"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
+            SpinBox {
+                value: CropState.y;
+                edited(v) => {
+                    CropState.y = v;
+                    CropState.changed();
+                }
+            }
+        }
+
+        Row {
+            Text { text: "W"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
+            SpinBox {
+                value: CropState.width;
+                edited(v) => {
+                    CropState.width = v;
+                    CropState.changed();
+                }
+            }
+            Text { text: "H"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
+            SpinBox {
+                value: CropState.height;
+                edited(v) => {
+                    CropState.height = v;
+                    CropState.changed();
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        IconButton {
+            icon-text: "🔗";
+            active: CropState.aspect-locked;
+            clicked => { CropState.aspect-lock-toggled(); }
+        }
+
+        Rectangle {}
+
+        IconButton {
+            icon-text: "↺";
+            clicked => { CropState.reset-clicked(); }
+        }
+    }
+}

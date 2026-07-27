@@ -1,0 +1,47 @@
+import { Theme } from "../theme.slint";
+import { ResolutionState } from "../state.slint";
+import { PanelSection } from "../components/panel_section.slint";
+import { IconButton } from "../components/icon_button.slint";
+import { ComboBox, SpinBox } from "std-widgets.slint";
+
+export component ResolutionPanel inherits PanelSection {
+    title: "Resolution";
+    icon-text: "⬚";
+
+    ComboBox {
+        model: ResolutionState.presets;
+        current-index: ResolutionState.preset-index;
+        selected(_) => {
+            ResolutionState.preset-index = self.current-index;
+            ResolutionState.preset-selected(self.current-index);
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        SpinBox {
+            enabled: ResolutionState.custom-fields-enabled;
+            value: ResolutionState.custom-width;
+            edited(v) => {
+                ResolutionState.custom-width = v;
+                ResolutionState.custom-size-changed();
+            }
+        }
+
+        IconButton {
+            icon-text: "🔗";
+            active: ResolutionState.aspect-locked;
+            clicked => { ResolutionState.aspect-lock-toggled(); }
+        }
+
+        SpinBox {
+            enabled: ResolutionState.custom-fields-enabled;
+            value: ResolutionState.custom-height;
+            edited(v) => {
+                ResolutionState.custom-height = v;
+                ResolutionState.custom-size-changed();
+            }
+        }
+    }
+}

@@ -1,0 +1,87 @@
+import { Theme } from "../theme.slint";
+import { PlaybackState } from "../state.slint";
+import { IconButton } from "../components/icon_button.slint";
+
+// Bottom bar: in/out trim track, playhead, and transport controls
+// (DESIGN.md section 15). Positions are 0.0-1.0 fractions of the clip
+// duration; Rust converts to/from milliseconds via `PlaybackState`.
+export component ScrubberBar inherits Rectangle {
+    height: 56px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border-color;
+
+    VerticalLayout {
+        padding: Theme.space-2;
+        spacing: Theme.space-1;
+
+        HorizontalLayout {
+            spacing: Theme.space-3;
+
+            Text {
+                text: PlaybackState.current-time-text;
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+                vertical-alignment: center;
+            }
+
+            track := Rectangle {
+                background: Theme.surface-alt;
+                border-radius: Theme.radius-control;
+                horizontal-stretch: 1;
+
+                TouchArea {
+                    clicked => {
+                        PlaybackState.seek-requested(self.mouse-x / self.width);
+                    }
+                }
+
+                Rectangle {
+                    x: PlaybackState.in-point-position * track.width;
+                    width: (PlaybackState.out-point-position - PlaybackState.in-point-position) * track.width;
+                    height: 100%;
+                    background: Theme.accent.with-alpha(0.2);
+                }
+
+                Rectangle {
+                    x: PlaybackState.playhead-position * track.width - 1px;
+                    width: 2px;
+                    height: 100%;
+                    background: Theme.accent;
+                }
+
+                Rectangle {
+                    x: PlaybackState.in-point-position * track.width - 3px;
+                    width: 6px;
+                    height: 100%;
+                    background: Theme.accent;
+                    border-radius: 2px;
+                }
+
+                Rectangle {
+                    x: PlaybackState.out-point-position * track.width - 3px;
+                    width: 6px;
+                    height: 100%;
+                    background: Theme.accent;
+                    border-radius: 2px;
+                }
+            }
+
+            Text {
+                text: PlaybackState.duration-text;
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+
+            IconButton {
+                icon-text: PlaybackState.playing ? "⏸" : "▶";
+                clicked => { PlaybackState.play-pause-clicked(); }
+            }
+        }
+    }
+}

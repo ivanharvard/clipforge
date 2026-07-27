@@ -1,0 +1,33 @@
+import { Theme } from "../theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { TransformPanel } from "transform_panel.slint";
+import { CropPanel } from "crop_panel.slint";
+import { ResolutionPanel } from "resolution_panel.slint";
+import { AudioPanel } from "audio_panel.slint";
+import { CompressPanel } from "compress_panel.slint";
+
+// Fixed vertical stack of the 5 editing panels (DESIGN.md section 9).
+// Not collapsible in v1 — all panels are visible at once, scrolling as a
+// single list if the window is too short to fit them all.
+export component Sidebar inherits Rectangle {
+    width: 280px;
+
+    scroll := ScrollView {
+        VerticalLayout {
+            // The vertical scrollbar overlays the flickable's content
+            // rather than reserving its own space, so pad the right side
+            // by its width (14px, per std-widgets' ScrollView) to keep
+            // panel content from rendering underneath it.
+            width: scroll.visible-width;
+            padding: Theme.space-4;
+            padding-right: Theme.space-4 + 14px;
+            spacing: Theme.space-4;
+
+            transform-panel := TransformPanel {}
+            crop-panel := CropPanel {}
+            resolution-panel := ResolutionPanel {}
+            audio-panel := AudioPanel {}
+            compress-panel := CompressPanel {}
+        }
+    }
+}

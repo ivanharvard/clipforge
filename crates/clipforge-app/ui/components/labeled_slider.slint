@@ -1,0 +1,43 @@
+import { Theme } from "../theme.slint";
+import { Slider } from "std-widgets.slint";
+
+// A slider paired with a label and a live value readout, used by the Audio
+// panel's volume control.
+export component LabeledSlider inherits Rectangle {
+    in property <string> label: "";
+    in property <string> value-text: "";
+    in property <float> minimum: 0;
+    in property <float> maximum: 1;
+    in-out property <float> value: 0;
+    callback changed(float);
+
+    VerticalLayout {
+        spacing: Theme.space-1;
+
+        HorizontalLayout {
+            Text {
+                text: root.label;
+                color: Theme.text-secondary;
+                font-size: Theme.text-sm;
+            }
+
+            Rectangle {}
+
+            Text {
+                text: root.value-text;
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+            }
+        }
+
+        Slider {
+            minimum: root.minimum;
+            maximum: root.maximum;
+            value: root.value;
+            changed(v) => {
+                root.value = v;
+                root.changed(v);
+            }
+        }
+    }
+}

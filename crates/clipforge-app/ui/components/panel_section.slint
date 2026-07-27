@@ -1,0 +1,36 @@
+import { Theme } from "../theme.slint";
+
+// Shared shell for the 5 sidebar panels: header (icon + title) plus a body
+// that lays out whatever the concrete panel declares as children.
+export component PanelSection inherits Rectangle {
+    in property <string> title: "";
+    in property <string> icon-text: "";
+
+    background: Theme.surface;
+    border-radius: Theme.radius-panel;
+    border-width: 1px;
+    border-color: Theme.border-color;
+
+    VerticalLayout {
+        padding: Theme.space-4;
+        spacing: Theme.space-3;
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            Text {
+                text: root.icon-text;
+                color: Theme.text-secondary;
+            }
+
+            Text {
+                text: root.title;
+                font-size: Theme.text-md;
+                font-weight: 600;
+                color: Theme.text-primary;
+            }
+        }
+
+        @children
+    }
+}

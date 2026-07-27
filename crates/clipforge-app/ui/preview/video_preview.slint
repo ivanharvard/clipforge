@@ -1,0 +1,27 @@
+import { Theme } from "../theme.slint";
+
+// Displays the current decoded frame (pushed in from Rust via
+// `video_surface.rs`) letterboxed against the surface background, or an
+// empty-state message when no clip is loaded.
+export component VideoPreview inherits Rectangle {
+    in property <image> frame;
+    in property <bool> has-clip: false;
+
+    background: Theme.surface;
+    border-radius: Theme.radius-panel;
+
+    if !root.has-clip: Text {
+        text: "Open a clip to begin";
+        color: Theme.text-secondary;
+        font-size: Theme.text-sm;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if root.has-clip: Image {
+        source: root.frame;
+        image-fit: contain;
+        width: 100%;
+        height: 100%;
+    }
+}

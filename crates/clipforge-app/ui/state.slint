@@ -1,0 +1,96 @@
+// Cross-cutting state exposed as Slint globals, per the "Key data flow"
+// section of the project's implementation plan: nested component instances
+// (panels, scrubber bar, export dialog) aren't reachable from the
+// generated Rust `App` API directly, so anything Rust needs to read or
+// drive lives here instead, and the components below bind straight to it.
+
+export global PlaybackState {
+    in-out property <string> current-time-text: "00:00:00.00";
+    in-out property <string> duration-text: "00:00:00.00";
+    in-out property <float> playhead-position: 0;
+    in-out property <float> in-point-position: 0;
+    in-out property <float> out-point-position: 1;
+    in-out property <bool> playing: false;
+
+    callback play-pause-clicked();
+    callback seek-requested(float);
+}
+
+export global TransformState {
+    in-out property <bool> flip-horizontal: false;
+    in-out property <bool> flip-vertical: false;
+
+    callback rotate-clockwise-clicked();
+    callback rotate-counter-clockwise-clicked();
+    callback flip-horizontal-toggled();
+    callback flip-vertical-toggled();
+    callback reset-clicked();
+}
+
+export global CropState {
+    in-out property <int> x: 0;
+    in-out property <int> y: 0;
+    in-out property <int> width: 0;
+    in-out property <int> height: 0;
+    in-out property <bool> aspect-locked: false;
+
+    callback changed();
+    callback aspect-lock-toggled();
+    callback reset-clicked();
+}
+
+export global ResolutionState {
+    in property <[string]> presets: ["Original", "1080p", "720p", "480p", "Custom"];
+    in-out property <int> preset-index: 0;
+    in-out property <int> custom-width: 1920;
+    in-out property <int> custom-height: 1080;
+    in-out property <bool> aspect-locked: true;
+    in-out property <bool> custom-fields-enabled: false;
+
+    callback preset-selected(int);
+    callback custom-size-changed();
+    callback aspect-lock-toggled();
+}
+
+export global AudioState {
+    in-out property <float> volume: 1.0;
+    in-out property <bool> muted: false;
+    in property <[string]> tracks: ["Track 1"];
+    in-out property <int> track-index: 0;
+    in-out property <bool> normalize: false;
+
+    callback volume-changed(float);
+    callback mute-toggled();
+    callback track-selected(int);
+    callback normalize-toggled();
+}
+
+export global CompressState {
+    in property <[string]> modes: ["CRF", "Bitrate (kbps)", "Target size (MB)"];
+    in-out property <int> mode-index: 0;
+    in-out property <int> mode-value: 23;
+    in-out property <string> estimated-size-text: "estimate unavailable";
+
+    callback mode-selected(int);
+    callback mode-value-changed(int);
+}
+
+export enum ExportPhase {
+    idle,
+    running,
+    success,
+    failed,
+}
+
+export global ExportDialogState {
+    in-out property <bool> visible: false;
+    in-out property <ExportPhase> phase: ExportPhase.idle;
+    in-out property <string> destination-path: "";
+    in-out property <float> progress: 0;
+    in-out property <string> result-message: "";
+
+    callback browse-clicked();
+    callback start-clicked();
+    callback cancel-clicked();
+    callback close-clicked();
+}

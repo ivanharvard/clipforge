@@ -1,0 +1,14 @@
+[package]
+name = "clipforge-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+clipforge-core.workspace = true
+clipforge-player.workspace = true
+slint.workspace = true
+anyhow.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

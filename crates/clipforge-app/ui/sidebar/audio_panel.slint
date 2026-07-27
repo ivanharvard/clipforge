@@ -1,0 +1,51 @@
+import { Theme } from "../theme.slint";
+import { AudioState } from "../state.slint";
+import { PanelSection } from "../components/panel_section.slint";
+import { IconButton } from "../components/icon_button.slint";
+import { LabeledSlider } from "../components/labeled_slider.slint";
+import { ComboBox, CheckBox } from "std-widgets.slint";
+
+export component AudioPanel inherits PanelSection {
+    title: "Audio";
+    icon-text: "♪";
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        LabeledSlider {
+            label: "Volume";
+            value-text: "\{Math.round(AudioState.volume * 100)}%";
+            minimum: 0;
+            maximum: 2;
+            value: AudioState.volume;
+            changed(v) => {
+                AudioState.volume = v;
+                AudioState.volume-changed(v);
+            }
+        }
+
+        IconButton {
+            icon-text: AudioState.muted ? "🔇" : "🔊";
+            active: AudioState.muted;
+            clicked => { AudioState.mute-toggled(); }
+        }
+    }
+
+    ComboBox {
+        model: AudioState.tracks;
+        current-index: AudioState.track-index;
+        selected(_) => {
+            AudioState.track-index = self.current-index;
+            AudioState.track-selected(self.current-index);
+        }
+    }
+
+    CheckBox {
+        text: "Normalize audio";
+        checked: AudioState.normalize;
+        toggled => {
+            AudioState.normalize = self.checked;
+            AudioState.normalize-toggled();
+        }
+    }
+}

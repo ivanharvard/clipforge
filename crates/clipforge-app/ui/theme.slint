@@ -1,0 +1,36 @@
+// Design tokens shared by every component. See DESIGN.md for the rationale
+// behind each value — components must reference these, never hardcode a
+// color/spacing/radius value of their own.
+export global Theme {
+    in-out property <bool> dark: false;
+
+    // Spacing scale (4px base).
+    out property <length> space-1: 4px;
+    out property <length> space-2: 8px;
+    out property <length> space-3: 12px;
+    out property <length> space-4: 16px;
+    out property <length> space-6: 24px;
+    out property <length> space-8: 32px;
+
+    // Corner radius.
+    out property <length> radius-control: 6px;
+    out property <length> radius-panel: 8px;
+
+    // Color roles (light / dark).
+    out property <color> bg: root.dark ? #1B1C1E : #F5F5F6;
+    out property <color> surface: root.dark ? #242528 : #FFFFFF;
+    out property <color> surface-alt: root.dark ? #2C2D30 : #ECECEE;
+    out property <color> border-color: root.dark ? #3A3B3F : #DCDCDF;
+    out property <color> text-primary: root.dark ? #F0F0F1 : #1A1A1C;
+    out property <color> text-secondary: root.dark ? #9A9BA0 : #6B6C70;
+    out property <color> accent: root.dark ? #5B93FF : #3A7DFF;
+    out property <color> accent-hover: root.dark ? #7AA6FF : #2E67E0;
+    out property <color> danger: root.dark ? #F16C71 : #E5484D;
+    out property <color> success: root.dark ? #4CCB84 : #2FA968;
+
+    // Typography.
+    out property <length> text-xs: 11px;
+    out property <length> text-sm: 13px;
+    out property <length> text-md: 14px;
+    out property <length> text-lg: 16px;
+}

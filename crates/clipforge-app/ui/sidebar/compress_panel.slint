@@ -1,0 +1,32 @@
+import { Theme } from "../theme.slint";
+import { CompressState } from "../state.slint";
+import { PanelSection } from "../components/panel_section.slint";
+import { ComboBox, SpinBox } from "std-widgets.slint";
+
+export component CompressPanel inherits PanelSection {
+    title: "Compress";
+    icon-text: "◧";
+
+    ComboBox {
+        model: CompressState.modes;
+        current-index: CompressState.mode-index;
+        selected(_) => {
+            CompressState.mode-index = self.current-index;
+            CompressState.mode-selected(self.current-index);
+        }
+    }
+
+    SpinBox {
+        value: CompressState.mode-value;
+        edited(v) => {
+            CompressState.mode-value = v;
+            CompressState.mode-value-changed(v);
+        }
+    }
+
+    Text {
+        text: CompressState.estimated-size-text;
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+    }
+}

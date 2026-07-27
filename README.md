@@ -28,8 +28,13 @@ structure, commit style, tooling).
 ## Building
 
 ```sh
-cargo build --workspace
-cargo run -p clipforge-app
+make setup   # checks for cargo, ffmpeg, ffprobe, libmpv, rustfmt, clippy
+make build   # cargo build --workspace
+make run     # cargo run -p clipforge-app (add CLIP=/path/to/file.mp4 to open a clip)
+make check   # fmt-check + clippy + test, same as CI
 ```
 
-Requires `ffmpeg`/`ffprobe` on `PATH` and a system libmpv installation.
+Run `make help` for the full list of targets, including packaging
+(`package-appimage`, `package-pacman`, `package-msi`) and a user-level
+`install`/`uninstall` for Linux. Requires `ffmpeg`/`ffprobe` on `PATH` and a
+system libmpv installation.

@@ -47,6 +47,7 @@ stated reason in the commit or PR description.
   dependency so it runs headlessly in CI on both Linux and Windows.
 - Pre-commit checklist:
   `cargo fmt --check` → `cargo clippy -- -D warnings` → `cargo test -p clipforge-core` → commit.
+  `make check` runs all three.
 
 ## Slint Conventions
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.clipforge.ClipForge</id>
+  <name>ClipForge</name>
+  <summary>Quick video clip trimmer</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      ClipForge is a lightweight single-clip video trimmer with crop,
+      resolution, audio, and compression controls.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.clipforge.ClipForge.desktop</launchable>
+</component>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX MSI definition skeleton. Fill in the binary source path once release
+  builds exist; see scripts/build-msi.ps1 for the build entry point.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="ClipForge"
+    Manufacturer="ClipForge contributors"
+    Version="0.1.0.0"
+    UpgradeCode="6f2f7f1e-6d0d-4e6a-9d3a-9f0a2b6e6a01">
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ClipForge">
+        <Component Id="MainExecutable" Guid="*">
+          <File Id="ClipForgeExe" Source="..\..\target\release\clipforge-app.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <ComponentRef Id="MainExecutable" />
+    </ComponentGroup>
+  </Package>
+</Wix>

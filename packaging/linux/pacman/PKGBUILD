@@ -1,0 +1,24 @@
+# Maintainer: ClipForge contributors
+pkgname=clipforge
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Quick single-clip video trimmer"
+arch=('x86_64')
+url="https://github.com/example/clipforge"
+license=('MIT')
+depends=('ffmpeg' 'mpv')
+makedepends=('cargo')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir"
+  cargo build --release --bin clipforge-app
+}
+
+package() {
+  cd "$startdir"
+  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  install -Dm644 packaging/linux/appimage/clipforge.desktop \
+    "$pkgdir/usr/share/applications/clipforge.desktop"
+}

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ClipForge
+Comment=Quick video clip trimmer
+Exec=clipforge-app %f
+Icon=clipforge
+Categories=AudioVideo;Video;
+Terminal=false

@@ -1,0 +1,30 @@
+app-id: com.clipforge.ClipForge
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: clipforge-app
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --filesystem=xdg-videos
+  - --device=dri
+
+modules:
+  - name: ffmpeg
+    # Use the shared-modules ffmpeg definition once vendored; placeholder
+    # until packaging is exercised for real.
+    buildsystem: simple
+    build-commands: []
+    sources: []
+
+  - name: clipforge
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --bin clipforge-app
+      - install -Dm755 target/release/clipforge-app /app/bin/clipforge-app
+    sources:
+      - type: dir
+        path: ../../..

@@ -1,0 +1,23 @@
+# AppImageBuilder recipe skeleton. Fill in once `cargo build --release`
+# output paths and icon assets exist; see scripts/build-appimage.sh for the
+# build entry point.
+version: 1
+
+AppDir:
+  app_info:
+    id: com.clipforge.ClipForge
+    name: ClipForge
+    icon: clipforge
+    version: latest
+    exec: usr/bin/clipforge-app
+    exec_args: $@
+
+  files:
+    include: []
+    exclude:
+      - usr/share/man
+      - usr/share/doc
+
+AppImage:
+  arch: x86_64
+  update-information: guess

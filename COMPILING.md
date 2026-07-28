@@ -21,11 +21,9 @@ Install the following before building:
 Open PowerShell:
 
 ```powershell
-git clone <REPOSITORY-URL>
+git clone https://github.com/ivanharvard/clipforge
 cd clipforge
 ```
-
-Replace `<REPOSITORY-URL>` with the repository URL.
 
 ## 2. Install Rust
 

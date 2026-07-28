@@ -11,6 +11,7 @@
     UpgradeCode="6f2f7f1e-6d0d-4e6a-9d3a-9f0a2b6e6a01">
 
     <MediaTemplate EmbedCab="yes" />
+    <Icon Id="ClipForge.ico" SourceFile="packaging\windows\icon.ico" />
 
     <Feature Id="Main">
       <ComponentGroupRef Id="AppFiles" />
@@ -19,13 +20,32 @@
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="ClipForge">
         <Component Id="MainExecutable" Guid="*">
-          <File Id="ClipForgeExe" Source="target\release\clipforge-app.exe" KeyPath="yes" />
+          <File Id="ClipForgeExe" Source="target\release\clipforge-app.exe" KeyPath="yes">
+            <Shortcut
+              Id="StartMenuShortcut"
+              Directory="ApplicationProgramsFolder"
+              Name="ClipForge"
+              Description="Launch ClipForge"
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="ClipForge.ico"
+              IconIndex="0"
+              Advertise="yes" />
+          </File>
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        </Component>
+        <Component Id="LibMpvRuntime" Guid="*">
+          <File Id="LibMpvDll" Source="target\release\libmpv-2.dll" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
 
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ClipForge" />
+    </StandardDirectory>
+
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="LibMpvRuntime" />
     </ComponentGroup>
   </Package>
 </Wix>

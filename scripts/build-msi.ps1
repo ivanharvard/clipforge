@@ -5,6 +5,19 @@ $ErrorActionPreference = "Stop"
 Set-Location "$PSScriptRoot\.."
 
 cargo build --release --bin clipforge-app
+if ($LASTEXITCODE -ne 0) {
+    throw "Cargo build failed with exit code $LASTEXITCODE"
+}
+
+$libMpvDll = "C:\libmpv\libmpv-2.dll"
+if (-not (Test-Path $libMpvDll -PathType Leaf)) {
+    throw "libmpv runtime DLL not found at $libMpvDll"
+}
+
+Copy-Item $libMpvDll target\release\libmpv-2.dll -Force
 
 New-Item -ItemType Directory -Force -Path dist | Out-Null
-wix build packaging/windows/clipforge.wxs -out dist/ClipForge.msi
+wix build -arch x64 packaging/windows/clipforge.wxs -out dist/ClipForge.msi
+if ($LASTEXITCODE -ne 0) {
+    throw "WiX build failed with exit code $LASTEXITCODE"
+}

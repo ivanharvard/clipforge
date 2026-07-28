@@ -7,7 +7,7 @@ import { ComboBox, CheckBox } from "std-widgets.slint";
 
 export component AudioPanel inherits PanelSection {
     title: "Audio";
-    icon-text: "♪";
+    icon: @image-url("../../icons/ui/audio-lines.svg");
 
     HorizontalLayout {
         spacing: Theme.space-2;
@@ -26,7 +26,10 @@ export component AudioPanel inherits PanelSection {
         }
 
         IconButton {
-            icon-text: AudioState.muted ? "🔇" : "🔊";
+            icon: AudioState.muted
+                ? @image-url("../../icons/ui/volume-x.svg")
+                : @image-url("../../icons/ui/volume-2.svg");
+            accessible-label: AudioState.muted ? "Unmute audio" : "Mute audio";
             active: AudioState.muted;
             clicked => { AudioState.mute-toggled(); }
         }

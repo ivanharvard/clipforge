@@ -1,29 +1,36 @@
 import { Theme } from "../theme.slint";
 
-// A compact icon-only button used for toolbar and panel actions. Renders a
-// text glyph today as a placeholder for the custom stroke icon set
-// described in DESIGN.md section 6.
+// A compact, theme-aware SVG icon button shared by toolbar and panel actions.
 export component IconButton inherits Rectangle {
-    in property <string> icon-text: "?";
+    in property <image> icon;
     in property <bool> active: false;
     in property <bool> is-enabled: true;
     callback clicked;
+
+    accessible-role: button;
 
     width: 28px;
     height: 28px;
     border-radius: Theme.radius-control;
     background: touch.pressed ? Theme.accent-hover : touch.has-hover ? Theme.surface-alt : transparent;
     opacity: is-enabled ? 1.0 : 0.4;
+    animate background { duration: 120ms; easing: ease-out; }
+    animate opacity { duration: 120ms; easing: ease-out; }
 
-    Text {
-        text: icon-text;
-        color: active ? Theme.accent : Theme.text-secondary;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    Image {
+        source: root.icon;
+        width: 16px;
+        height: 16px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        image-fit: contain;
+        colorize: active ? Theme.accent : Theme.text-secondary;
+        accessible-role: none;
     }
 
     touch := TouchArea {
         enabled: is-enabled;
+        mouse-cursor: is-enabled ? pointer : default;
         clicked => { root.clicked(); }
     }
 }

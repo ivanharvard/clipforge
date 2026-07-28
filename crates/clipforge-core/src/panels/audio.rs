@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// State for the Audio panel.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioState {
     /// 0.0 (silent) to 1.0 (source level), may exceed 1.0 for gain boost up
     /// to 2.0 (200%).

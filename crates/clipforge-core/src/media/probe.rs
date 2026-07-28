@@ -1,13 +1,13 @@
 use std::path::Path;
-use std::process::Command;
 
 use crate::error::{CoreError, CoreResult};
+use crate::process::tool_command;
 
 use super::types::{AudioStreamInfo, FfprobeOutput, MediaInfo, VideoStreamInfo};
 
 /// Runs `ffprobe` on `path` and parses the result into a [`MediaInfo`].
 pub fn probe(path: &Path) -> CoreResult<MediaInfo> {
-    let output = Command::new("ffprobe")
+    let output = tool_command("ffprobe")
         .args([
             "-v",
             "error",

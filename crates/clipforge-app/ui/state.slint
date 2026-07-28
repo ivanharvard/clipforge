@@ -7,6 +7,8 @@
 export global PlaybackState {
     in-out property <string> current-time-text: "00:00:00.00";
     in-out property <string> duration-text: "00:00:00.00";
+    in-out property <string> in-point-time-text: "00:00:00.00";
+    in-out property <string> out-point-time-text: "00:00:00.00";
     in-out property <float> playhead-position: 0;
     in-out property <float> in-point-position: 0;
     in-out property <float> out-point-position: 1;
@@ -16,6 +18,8 @@ export global PlaybackState {
     callback seek-requested(float);
     callback in-point-drag-requested(float);
     callback out-point-drag-requested(float);
+    callback in-point-text-submitted(string);
+    callback out-point-text-submitted(string);
     // Fired once when an in/out handle drag starts (not per move event) so
     // Rust can push exactly one undo snapshot per drag.
     callback trim-drag-started();
@@ -76,13 +80,43 @@ export global AudioState {
 }
 
 export global CompressState {
-    in property <[string]> modes: ["CRF", "Bitrate (kbps)", "Target size (MB)"];
-    in-out property <int> mode-index: 0;
-    in-out property <int> mode-value: 23;
+    in property <[string]> modes: ["Quality", "Video bitrate", "Target file size"];
+    in-out property <int> mode-index: 2;
+    in-out property <int> mode-value: 8;
     in-out property <string> estimated-size-text: "estimate unavailable";
+    in-out property <bool> apply-to-all: true;
 
     callback mode-selected(int);
     callback mode-value-changed(int);
+    callback apply-to-all-changed(bool);
+}
+
+export global QueueState {
+    in-out property <int> count: 0;
+    in-out property <string> current-name: "";
+    in-out property <string> previous-name: "";
+    in-out property <string> next-name: "";
+    in-out property <string> position-text: "";
+    in-out property <bool> can-previous: false;
+    in-out property <bool> can-next: false;
+
+    callback add-clicked();
+    callback remove-clicked();
+    callback previous-clicked();
+    callback next-clicked();
+}
+
+export struct PipelineStageView {
+    label: string,
+    enabled: bool,
+}
+
+export global PipelineState {
+    in-out property <[PipelineStageView]> stages: [];
+
+    callback enabled-changed(int, bool);
+    callback move-up-clicked(int);
+    callback move-down-clicked(int);
 }
 
 export enum ExportPhase {

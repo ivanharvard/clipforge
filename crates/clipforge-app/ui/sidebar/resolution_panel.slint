@@ -6,7 +6,7 @@ import { ComboBox, SpinBox } from "std-widgets.slint";
 
 export component ResolutionPanel inherits PanelSection {
     title: "Resolution";
-    icon-text: "⬚";
+    icon: @image-url("../../icons/ui/monitor.svg");
 
     ComboBox {
         model: ResolutionState.presets;
@@ -73,7 +73,8 @@ export component ResolutionPanel inherits PanelSection {
         spacing: Theme.space-2;
 
         IconButton {
-            icon-text: "🔗";
+            icon: @image-url("../../icons/ui/link.svg");
+            accessible-label: "Lock resolution aspect ratio";
             active: ResolutionState.aspect-locked;
             clicked => { ResolutionState.aspect-lock-toggled(); }
         }

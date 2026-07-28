@@ -1,11 +1,18 @@
 import { Theme } from "../theme.slint";
 import { CompressState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
-import { ComboBox, SpinBox } from "std-widgets.slint";
+import { ComboBox, SpinBox, CheckBox } from "std-widgets.slint";
 
 export component CompressPanel inherits PanelSection {
     title: "Compress";
-    icon-text: "◧";
+    icon: @image-url("../../icons/ui/archive-restore.svg");
+
+    Text {
+        text: "Choose the output goal. Target file size is usually the easiest option.";
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
+    }
 
     ComboBox {
         model: CompressState.modes;
@@ -16,21 +23,52 @@ export component CompressPanel inherits PanelSection {
         }
     }
 
-    SpinBox {
-        // Bounds depend on the selected mode: CRF (0-51), Bitrate in kbps,
-        // or target file size in MB.
-        minimum: 0;
-        maximum: CompressState.mode-index == 0 ? 51 : (CompressState.mode-index == 1 ? 100000 : 10000);
-        value: CompressState.mode-value;
-        edited(v) => {
-            CompressState.mode-value = v;
-            CompressState.mode-value-changed(v);
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        SpinBox {
+            horizontal-stretch: 1;
+            minimum: CompressState.mode-index == 0 ? 0 : 1;
+            maximum: CompressState.mode-index == 0 ? 51 : (CompressState.mode-index == 1 ? 100000 : 10000);
+            value: CompressState.mode-value;
+            edited(v) => {
+                CompressState.mode-value = v;
+                CompressState.mode-value-changed(v);
+            }
         }
+
+        Text {
+            text: CompressState.mode-index == 0 ? "CRF" : (CompressState.mode-index == 1 ? "kbps" : "MB");
+            width: 40px;
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    Text {
+        text: CompressState.mode-index == 0
+            ? "Lower CRF means higher quality and a larger file."
+            : (CompressState.mode-index == 1
+                ? "Sets a fixed video data rate."
+                : "ClipForge calculates the bitrate needed for this size.");
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
     }
 
     Text {
         text: CompressState.estimated-size-text;
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
+    }
+
+    CheckBox {
+        text: "Apply compression to all queued videos";
+        checked: CompressState.apply-to-all;
+        toggled => {
+            CompressState.apply-to-all = self.checked;
+            CompressState.apply-to-all-changed(self.checked);
+        }
     }
 }

@@ -1,0 +1,95 @@
+import { Theme } from "../theme.slint";
+import { QueueState } from "../state.slint";
+import { IconButton } from "../components/icon_button.slint";
+
+component QueueCard inherits Rectangle {
+    in property <string> label: "";
+    in property <bool> active: false;
+    in property <bool> is-enabled: true;
+    callback clicked;
+
+    height: 40px;
+    horizontal-stretch: root.active ? 2 : 1;
+    border-radius: Theme.radius-control;
+    border-width: 1px;
+    border-color: root.active ? Theme.accent : Theme.border-color;
+    background: root.active
+        ? Theme.accent.with-alpha(0.12)
+        : touch.has-hover ? Theme.accent.with-alpha(0.08) : Theme.surface-alt;
+    opacity: root.is-enabled ? 1 : 0;
+    animate background { duration: 120ms; easing: ease-out; }
+    animate opacity { duration: 120ms; easing: ease-out; }
+
+    Text {
+        text: root.label;
+        color: root.active ? Theme.text-primary : Theme.text-secondary;
+        font-size: Theme.text-xs;
+        overflow: elide;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.is-enabled && !root.active;
+        mouse-cursor: self.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component QueueCarousel inherits Rectangle {
+    height: 64px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border-color;
+
+    HorizontalLayout {
+        padding-left: Theme.space-4;
+        padding-right: Theme.space-4;
+        padding-top: Theme.space-3;
+        padding-bottom: Theme.space-3;
+        spacing: Theme.space-2;
+
+        IconButton {
+            icon: @image-url("../../icons/ui/chevron-left.svg");
+            accessible-label: "Previous queued video";
+            is-enabled: QueueState.can-previous;
+            clicked => { QueueState.previous-clicked(); }
+        }
+
+        QueueCard {
+            label: QueueState.previous-name;
+            is-enabled: QueueState.can-previous;
+            clicked => { QueueState.previous-clicked(); }
+        }
+
+        QueueCard {
+            label: QueueState.current-name + "  ·  " + QueueState.position-text;
+            active: true;
+        }
+
+        QueueCard {
+            label: QueueState.next-name;
+            is-enabled: QueueState.can-next;
+            clicked => { QueueState.next-clicked(); }
+        }
+
+        IconButton {
+            icon: @image-url("../../icons/ui/chevron-right.svg");
+            accessible-label: "Next queued video";
+            is-enabled: QueueState.can-next;
+            clicked => { QueueState.next-clicked(); }
+        }
+
+        IconButton {
+            icon: @image-url("../../icons/ui/x.svg");
+            accessible-label: "Remove current video from queue";
+            clicked => { QueueState.remove-clicked(); }
+        }
+
+        IconButton {
+            icon: @image-url("../../icons/ui/plus.svg");
+            accessible-label: "Add videos to queue";
+            clicked => { QueueState.add-clicked(); }
+        }
+    }
+}

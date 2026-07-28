@@ -2,8 +2,8 @@ import { Theme } from "../theme.slint";
 import { ExportDialogState, ExportPhase } from "../state.slint";
 import { Button, LineEdit, ProgressIndicator } from "std-widgets.slint";
 
-// Modal export dialog (DESIGN.md section 16): destination picker while
-// idle, progress bar while running, success/error summary when finished.
+// Queue export dialog: folder picker while idle, aggregate progress while
+// running, and a success/error summary when finished.
 export component ExportDialog inherits Rectangle {
     background: Theme.surface;
     border-radius: Theme.radius-panel;
@@ -15,7 +15,7 @@ export component ExportDialog inherits Rectangle {
         spacing: Theme.space-4;
 
         Text {
-            text: "Export";
+            text: "Export queue";
             font-size: Theme.text-lg;
             font-weight: 600;
             color: Theme.text-primary;
@@ -26,12 +26,12 @@ export component ExportDialog inherits Rectangle {
 
             LineEdit {
                 text: ExportDialogState.destination-path;
-                placeholder-text: "Destination path";
+                placeholder-text: "Export folder";
                 edited(t) => { ExportDialogState.destination-path = t; }
             }
 
             Button {
-                text: "Browse…";
+                text: "Choose folder…";
                 clicked => { ExportDialogState.browse-clicked(); }
             }
         }
@@ -41,6 +41,13 @@ export component ExportDialog inherits Rectangle {
 
             ProgressIndicator {
                 progress: ExportDialogState.progress;
+            }
+
+            Text {
+                text: ExportDialogState.result-message;
+                color: Theme.text-primary;
+                font-size: Theme.text-sm;
+                overflow: elide;
             }
 
             Text {
@@ -61,7 +68,7 @@ export component ExportDialog inherits Rectangle {
             spacing: Theme.space-2;
 
             if ExportDialogState.phase == ExportPhase.idle: Button {
-                text: "Export";
+                text: "Export all";
                 primary: true;
                 clicked => { ExportDialogState.start-clicked(); }
             }

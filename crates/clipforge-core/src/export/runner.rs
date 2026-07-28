@@ -1,8 +1,9 @@
 use std::io::{BufRead, BufReader, Read};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{CoreError, CoreResult};
+use crate::process::tool_command;
 
 use super::job::ExportJob;
 use super::progress::{ExportProgress, ProgressParser};
@@ -53,6 +54,15 @@ impl ExportHandle {
             if let Some(mut err) = child.stderr.take() {
                 let _ = err.read_to_string(&mut stderr);
             }
+            let stderr = stderr
+                .lines()
+                .rev()
+                .take(18)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
             return Err(CoreError::ExportFailed { stderr });
         }
         Ok(())
@@ -63,7 +73,7 @@ impl ExportHandle {
 /// to call from the UI thread. Pair with [`ExportHandle::wait_with_progress`]
 /// on a background thread to drive it to completion.
 pub fn spawn_export(job: &ExportJob) -> CoreResult<ExportHandle> {
-    let child = Command::new("ffmpeg")
+    let child = tool_command("ffmpeg")
         .args(&job.ffmpeg_args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

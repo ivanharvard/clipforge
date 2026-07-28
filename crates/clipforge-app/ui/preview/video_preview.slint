@@ -11,27 +11,38 @@ export component VideoPreview inherits Rectangle {
     in property <string> error-text: "";
     in property <int> source-width: 1;
     in property <int> source-height: 1;
+    callback empty-clicked;
 
     background: Theme.surface;
     border-radius: Theme.radius-panel;
 
-    if !root.has-clip: VerticalLayout {
-        alignment: center;
-        spacing: Theme.space-2;
+    if !root.has-clip: empty-state := Rectangle {
+        background: empty-touch.has-hover ? Theme.surface-alt : transparent;
+        animate background { duration: 140ms; easing: ease-out; }
 
-        Text {
-            text: "Open a clip to begin";
-            color: Theme.text-secondary;
-            font-size: Theme.text-sm;
-            horizontal-alignment: center;
+        VerticalLayout {
+            alignment: center;
+            spacing: Theme.space-2;
+
+            Text {
+                text: "Open a clip to begin";
+                color: Theme.text-secondary;
+                font-size: Theme.text-sm;
+                horizontal-alignment: center;
+            }
+
+            if root.error-text != "": Text {
+                text: root.error-text;
+                color: Theme.danger;
+                font-size: Theme.text-xs;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
         }
 
-        if root.error-text != "": Text {
-            text: root.error-text;
-            color: Theme.danger;
-            font-size: Theme.text-xs;
-            horizontal-alignment: center;
-            wrap: word-wrap;
+        empty-touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.empty-clicked(); }
         }
     }
 

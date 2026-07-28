@@ -34,7 +34,7 @@ component CropField inherits HorizontalLayout {
 
 export component CropPanel inherits PanelSection {
     title: "Crop";
-    icon-text: "▢";
+    icon: @image-url("../../icons/ui/crop.svg");
 
     VerticalLayout {
         spacing: Theme.space-1;
@@ -92,13 +92,15 @@ export component CropPanel inherits PanelSection {
         spacing: Theme.space-2;
 
         IconButton {
-            icon-text: "⛶";
+            icon: @image-url("../../icons/ui/scan.svg");
+            accessible-label: "Toggle crop tool";
             active: CropState.tool-active;
             clicked => { CropState.tool-active = !CropState.tool-active; }
         }
 
         IconButton {
-            icon-text: "🔗";
+            icon: @image-url("../../icons/ui/link.svg");
+            accessible-label: "Lock crop aspect ratio";
             active: CropState.aspect-locked;
             clicked => { CropState.aspect-lock-toggled(); }
         }
@@ -106,7 +108,8 @@ export component CropPanel inherits PanelSection {
         Rectangle {}
 
         IconButton {
-            icon-text: "↺";
+            icon: @image-url("../../icons/ui/rotate-ccw.svg");
+            accessible-label: "Reset crop";
             clicked => { CropState.reset-clicked(); }
         }
     }

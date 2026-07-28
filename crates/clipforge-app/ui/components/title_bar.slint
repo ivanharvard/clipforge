@@ -22,38 +22,44 @@ export component TitleBar inherits Rectangle {
         padding-right: Theme.space-4;
         spacing: Theme.space-3;
 
-        Text {
+        open-label := Text {
             text: "Open Clip";
-            color: Theme.text-primary;
+            color: open-touch.has-hover ? Theme.accent-hover : Theme.text-primary;
             font-size: Theme.text-sm;
             vertical-alignment: center;
+            animate color { duration: 120ms; easing: ease-out; }
 
-            TouchArea {
+            open-touch := TouchArea {
+                mouse-cursor: pointer;
                 clicked => { root.open-clip-clicked(); }
             }
         }
 
         IconButton {
-            icon-text: "↶";
+            icon: @image-url("../../icons/ui/undo-2.svg");
+            accessible-label: "Undo";
             is-enabled: root.can-undo;
             clicked => { root.undo-clicked(); }
         }
 
         IconButton {
-            icon-text: "↷";
+            icon: @image-url("../../icons/ui/redo-2.svg");
+            accessible-label: "Redo";
             is-enabled: root.can-redo;
             clicked => { root.redo-clicked(); }
         }
 
         Rectangle {}
 
-        Text {
+        export-label := Text {
             text: "Export";
-            color: Theme.accent;
+            color: export-touch.has-hover ? Theme.accent-hover : Theme.accent;
             font-size: Theme.text-sm;
             vertical-alignment: center;
+            animate color { duration: 120ms; easing: ease-out; }
 
-            TouchArea {
+            export-touch := TouchArea {
+                mouse-cursor: pointer;
                 clicked => { root.export-clicked(); }
             }
         }

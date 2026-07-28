@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// State for the Transform panel: 90-degree rotation and axis flips.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TransformState {
     /// Rotation in degrees, always a multiple of 90, normalized to [0, 360).
     rotation: u16,

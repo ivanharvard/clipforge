@@ -6,7 +6,7 @@ import { GroupLabel } from "../components/group_label.slint";
 
 export component TransformPanel inherits PanelSection {
     title: "Transform";
-    icon-text: "⟳";
+    icon: @image-url("../../icons/ui/rotate-cw.svg");
 
     VerticalLayout {
         spacing: Theme.space-1;
@@ -17,12 +17,14 @@ export component TransformPanel inherits PanelSection {
             spacing: Theme.space-2;
 
             IconButton {
-                icon-text: "⟲";
+                icon: @image-url("../../icons/ui/rotate-ccw.svg");
+                accessible-label: "Rotate counter-clockwise";
                 clicked => { TransformState.rotate-counter-clockwise-clicked(); }
             }
 
             IconButton {
-                icon-text: "⟳";
+                icon: @image-url("../../icons/ui/rotate-cw.svg");
+                accessible-label: "Rotate clockwise";
                 clicked => { TransformState.rotate-clockwise-clicked(); }
             }
 
@@ -39,13 +41,15 @@ export component TransformPanel inherits PanelSection {
             spacing: Theme.space-2;
 
             IconButton {
-                icon-text: "⇋";
+                icon: @image-url("../../icons/ui/flip-horizontal-2.svg");
+                accessible-label: "Flip horizontally";
                 active: TransformState.flip-horizontal;
                 clicked => { TransformState.flip-horizontal-toggled(); }
             }
 
             IconButton {
-                icon-text: "⇅";
+                icon: @image-url("../../icons/ui/flip-vertical-2.svg");
+                accessible-label: "Flip vertically";
                 active: TransformState.flip-vertical;
                 clicked => { TransformState.flip-vertical-toggled(); }
             }
@@ -58,7 +62,8 @@ export component TransformPanel inherits PanelSection {
         alignment: end;
 
         IconButton {
-            icon-text: "↺";
+            icon: @image-url("../../icons/ui/rotate-ccw.svg");
+            accessible-label: "Reset transform";
             clicked => { TransformState.reset-clicked(); }
         }
     }

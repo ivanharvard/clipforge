@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 use crate::panels::{AudioState, CompressState, CropState, ResolutionState, TransformState};
 use crate::timeline::ClipBounds;
 
 /// A single loaded clip and all of its editing state — everything needed to
 /// build an export job.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Project {
     pub source_path: PathBuf,
     pub source_width: u32,

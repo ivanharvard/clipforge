@@ -3,7 +3,9 @@ use clipforge_core::Project;
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
-use crate::{App, AudioState, CompressState, CropState, PlaybackState, ResolutionState, TransformState};
+use crate::{
+    App, AudioState, CompressState, CropState, PlaybackState, ResolutionState, TransformState,
+};
 
 /// Refreshes the title bar's undo/redo button enabled-state from `state`'s
 /// history. Call after any `push_undo_snapshot`/`undo`/`redo`.
@@ -71,6 +73,8 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     let playback = app.global::<PlaybackState>();
     let duration = project.clip_bounds.duration();
     playback.set_duration_text(duration.to_string().into());
+    playback.set_in_point_time_text(project.clip_bounds.in_point().to_string().into());
+    playback.set_out_point_time_text(project.clip_bounds.out_point().to_string().into());
     if duration.as_ms() > 0 {
         playback.set_in_point_position(
             (project.clip_bounds.in_point().as_ms() as f64 / duration.as_ms() as f64) as f32,

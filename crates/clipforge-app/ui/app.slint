@@ -6,6 +6,9 @@ import {
     ResolutionState,
     AudioState,
     CompressState,
+    QueueState,
+    PipelineState,
+    PipelineStageView,
     ExportDialogState,
     ExportPhase,
 } from "state.slint";
@@ -14,6 +17,7 @@ import { VideoPreview } from "preview/video_preview.slint";
 import { Sidebar } from "sidebar/sidebar.slint";
 import { ScrubberBar } from "timeline/scrubber_bar.slint";
 import { ExportDialog } from "export/export_dialog.slint";
+import { QueueCarousel } from "queue/queue_carousel.slint";
 
 // Re-exported so Rust can reach these globals via `app.global::<T>()` —
 // Slint only generates Rust bindings for globals exported from the root
@@ -26,6 +30,9 @@ export {
     ResolutionState,
     AudioState,
     CompressState,
+    QueueState,
+    PipelineState,
+    PipelineStageView,
     ExportDialogState,
     ExportPhase,
 }
@@ -79,6 +86,8 @@ export component App inherits Window {
                 can-redo: root.can-redo;
             }
 
+            if QueueState.count > 0: QueueCarousel {}
+
             HorizontalLayout {
                 vertical-stretch: 1;
 
@@ -89,6 +98,7 @@ export component App inherits Window {
                     error-text: root.load-error-text;
                     source-width: root.source-width;
                     source-height: root.source-height;
+                    empty-clicked => { root.open-clip-clicked(); }
                 }
 
                 Sidebar {}

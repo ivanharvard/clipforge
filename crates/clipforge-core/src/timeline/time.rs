@@ -1,7 +1,9 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// A timestamp in whole milliseconds from the start of a clip.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct Timestamp(pub u64);
 
 impl Timestamp {

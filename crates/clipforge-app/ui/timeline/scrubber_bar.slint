@@ -1,6 +1,7 @@
 import { Theme } from "../theme.slint";
 import { PlaybackState } from "../state.slint";
 import { IconButton } from "../components/icon_button.slint";
+import { LineEdit } from "std-widgets.slint";
 
 // Bottom bar: transport control beside a thick in/out trim track
 // (DESIGN.md section 15). Positions are 0.0-1.0 fractions of the clip
@@ -16,7 +17,10 @@ export component ScrubberBar inherits Rectangle {
         spacing: Theme.space-3;
 
         IconButton {
-            icon-text: PlaybackState.playing ? "⏸" : "▶";
+            icon: PlaybackState.playing
+                ? @image-url("../../icons/ui/pause.svg")
+                : @image-url("../../icons/ui/play.svg");
+            accessible-label: PlaybackState.playing ? "Pause" : "Play";
             clicked => { PlaybackState.play-pause-clicked(); }
         }
 
@@ -27,8 +31,27 @@ export component ScrubberBar inherits Rectangle {
             vertical-alignment: center;
         }
 
+
+        VerticalLayout {
+            spacing: 1px;
+            horizontal-stretch: 0;
+
+            Text {
+                text: "In";
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+            }
+
+            LineEdit {
+                width: 86px;
+                height: 28px;
+                text: PlaybackState.in-point-time-text;
+                accepted => { PlaybackState.in-point-text-submitted(self.text); }
+            }
+        }
+
         track := Rectangle {
-            // 0 = not dragging, 1 = dragging the in-handle, 2 = the out-handle.
+            // 0 = idle, 1/2 = trim handles, 3 = playhead.
             property <int> drag-target: 0;
             // How close (in px) a press must be to a handle to grab it
             // instead of seeking.
@@ -40,13 +63,12 @@ export component ScrubberBar inherits Rectangle {
             height: 40px;
             clip: true;
 
-            TouchArea {
-                clicked => {
-                    if (track.drag-target == 0) {
-                        PlaybackState.seek-requested(self.mouse-x / self.width);
-                    }
-                }
-
+            scrubber-touch := TouchArea {
+                mouse-cursor: track.drag-target == 1 || track.drag-target == 2
+                    || (self.has-hover && (Math.abs(self.mouse-x / self.width - PlaybackState.in-point-position) * self.width < track.hit-radius
+                        || Math.abs(self.mouse-x / self.width - PlaybackState.out-point-position) * self.width < track.hit-radius))
+                    ? ew-resize
+                    : self.pressed ? grabbing : grab;
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down) {
                         if (Math.abs(self.pressed-x / self.width - PlaybackState.in-point-position) * self.width < track.hit-radius) {
@@ -56,7 +78,8 @@ export component ScrubberBar inherits Rectangle {
                             track.drag-target = 2;
                             PlaybackState.trim-drag-started();
                         } else {
-                            track.drag-target = 0;
+                            track.drag-target = 3;
+                            PlaybackState.seek-requested(self.pressed-x / self.width);
                         }
                     } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
                         track.drag-target = 0;
@@ -68,6 +91,8 @@ export component ScrubberBar inherits Rectangle {
                         PlaybackState.in-point-drag-requested(self.mouse-x / self.width);
                     } else if (track.drag-target == 2) {
                         PlaybackState.out-point-drag-requested(self.mouse-x / self.width);
+                    } else if (track.drag-target == 3) {
+                        PlaybackState.seek-requested(self.mouse-x / self.width);
                     }
                 }
             }
@@ -92,6 +117,10 @@ export component ScrubberBar inherits Rectangle {
                 height: 100%;
                 background: Theme.accent;
                 border-radius: 3px;
+                opacity: scrubber-touch.has-hover
+                    && Math.abs(scrubber-touch.mouse-x / scrubber-touch.width - PlaybackState.in-point-position) * scrubber-touch.width < track.hit-radius
+                    ? 1 : 0.8;
+                animate opacity { duration: 100ms; easing: ease-out; }
             }
 
             Rectangle {
@@ -100,14 +129,29 @@ export component ScrubberBar inherits Rectangle {
                 height: 100%;
                 background: Theme.accent;
                 border-radius: 3px;
+                opacity: scrubber-touch.has-hover
+                    && Math.abs(scrubber-touch.mouse-x / scrubber-touch.width - PlaybackState.out-point-position) * scrubber-touch.width < track.hit-radius
+                    ? 1 : 0.8;
+                animate opacity { duration: 100ms; easing: ease-out; }
             }
         }
 
-        Text {
-            text: PlaybackState.duration-text;
-            color: Theme.text-secondary;
-            font-size: Theme.text-xs;
-            vertical-alignment: center;
+        VerticalLayout {
+            spacing: 1px;
+            horizontal-stretch: 0;
+
+            Text {
+                text: "Out";
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+            }
+
+            LineEdit {
+                width: 86px;
+                height: 28px;
+                text: PlaybackState.out-point-time-text;
+                accepted => { PlaybackState.out-point-text-submitted(self.text); }
+            }
         }
     }
 }

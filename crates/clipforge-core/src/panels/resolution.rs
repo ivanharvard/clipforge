@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// Output resolution presets shown in the Resolution panel's dropdown.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResolutionPreset {
     Original,
     Hd1080p,
@@ -9,7 +11,7 @@ pub enum ResolutionPreset {
 }
 
 /// State for the Resolution panel.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ResolutionState {
     pub preset: ResolutionPreset,
     pub custom_width: u32,

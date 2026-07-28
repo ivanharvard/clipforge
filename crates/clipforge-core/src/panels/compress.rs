@@ -1,5 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 /// Which quality-control input drives the Compress panel's ffmpeg args.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum QualityMode {
     /// Constant Rate Factor, lower is higher quality (libx264/libx265 range
     /// is roughly 0-51).
@@ -13,12 +15,12 @@ pub enum QualityMode {
 
 impl Default for QualityMode {
     fn default() -> Self {
-        QualityMode::Crf(23)
+        QualityMode::TargetSizeMb(8.0)
     }
 }
 
 /// State for the Compress panel.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct CompressState {
     pub mode: QualityMode,
 }
@@ -79,5 +81,10 @@ mod tests {
         };
         assert_eq!(state.estimated_size_mb(10.0), 0.0);
         assert_eq!(state.target_bitrate_kbps(10.0), None);
+    }
+
+    #[test]
+    fn default_targets_eight_megabytes() {
+        assert_eq!(QualityMode::default(), QualityMode::TargetSizeMb(8.0));
     }
 }

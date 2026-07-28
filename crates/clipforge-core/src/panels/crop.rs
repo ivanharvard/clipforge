@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 /// State for the Crop panel: a pixel-space crop rectangle within the
 /// source frame, plus whether width/height are locked to the source aspect
 /// ratio.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CropState {
     pub x: u32,
     pub y: u32,

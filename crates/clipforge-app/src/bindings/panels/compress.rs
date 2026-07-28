@@ -33,6 +33,7 @@ fn update_estimate(app: &App, state: &Rc<RefCell<AppState>>) {
 
 pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     let compress = app.global::<CompressState>();
+    compress.set_apply_to_all(state.borrow().settings.compression_apply_all);
 
     {
         let app_weak = app.as_weak();
@@ -44,11 +45,11 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             {
                 let mut app_state = state.borrow_mut();
                 app_state.push_undo_snapshot();
-                let Some(project) = &mut app_state.project else {
+                if app_state.project.is_none() {
                     return;
-                };
+                }
                 let value = app.global::<CompressState>().get_mode_value();
-                project.compress.mode = quality_mode_from_index(index, value);
+                app_state.update_compression(quality_mode_from_index(index, value));
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             update_estimate(&app, &state);
@@ -65,14 +66,21 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             {
                 let mut app_state = state.borrow_mut();
                 app_state.push_undo_snapshot();
-                let Some(project) = &mut app_state.project else {
+                if app_state.project.is_none() {
                     return;
-                };
+                }
                 let index = app.global::<CompressState>().get_mode_index();
-                project.compress.mode = quality_mode_from_index(index, value);
+                app_state.update_compression(quality_mode_from_index(index, value));
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             update_estimate(&app, &state);
+        });
+    }
+
+    {
+        let state = state.clone();
+        compress.on_apply_to_all_changed(move |enabled| {
+            state.borrow_mut().set_compression_apply_all(enabled);
         });
     }
 }

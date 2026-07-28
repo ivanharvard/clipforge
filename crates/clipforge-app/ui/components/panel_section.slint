@@ -6,13 +6,14 @@ import { Theme } from "../theme.slint";
 // (DESIGN.md section 9) — there's no accordion/exclusivity between them.
 export component PanelSection inherits Rectangle {
     in property <string> title: "";
-    in property <string> icon-text: "";
+    in property <image> icon;
     in-out property <bool> expanded: true;
 
     background: Theme.surface;
     border-radius: Theme.radius-panel;
     border-width: 1px;
-    border-color: Theme.border-color;
+    border-color: header-touch.has-hover ? Theme.accent.with-alpha(0.65) : Theme.border-color;
+    animate border-color { duration: 120ms; easing: ease-out; }
 
     VerticalLayout {
         padding: Theme.space-4;
@@ -21,17 +22,20 @@ export component PanelSection inherits Rectangle {
         header := HorizontalLayout {
             spacing: Theme.space-2;
 
-            Text {
-                text: root.expanded ? "▾" : "▸";
-                color: Theme.text-secondary;
-                font-size: Theme.text-xs;
-                vertical-alignment: center;
+            Image {
+                source: root.expanded
+                    ? @image-url("../../icons/ui/chevron-down.svg")
+                    : @image-url("../../icons/ui/chevron-right.svg");
+                width: 14px;
+                height: 14px;
+                colorize: Theme.text-secondary;
             }
 
-            Text {
-                text: root.icon-text;
-                color: Theme.text-secondary;
-                vertical-alignment: center;
+            Image {
+                source: root.icon;
+                width: 16px;
+                height: 16px;
+                colorize: Theme.text-secondary;
             }
 
             Text {
@@ -42,7 +46,8 @@ export component PanelSection inherits Rectangle {
                 vertical-alignment: center;
             }
 
-            TouchArea {
+            header-touch := TouchArea {
+                mouse-cursor: pointer;
                 clicked => { root.expanded = !root.expanded; }
             }
         }

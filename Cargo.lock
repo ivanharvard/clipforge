@@ -849,6 +849,8 @@ dependencies = [
  "clipforge-core",
  "clipforge-player",
  "rfd",
+ "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "winresource",

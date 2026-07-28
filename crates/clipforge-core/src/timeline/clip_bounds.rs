@@ -1,10 +1,11 @@
 use crate::error::{CoreError, CoreResult};
+use serde::{Deserialize, Serialize};
 
 use super::time::Timestamp;
 
 /// The in/out trim range selected for export, clamped to a known media
 /// duration.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ClipBounds {
     duration: Timestamp,
     in_point: Timestamp,

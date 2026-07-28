@@ -29,7 +29,7 @@ impl PlayerContext {
     /// Seeks to an absolute position in seconds.
     pub fn seek_to(&self, position_secs: f64) -> PlayerResult<()> {
         self.mpv()
-            .command("seek", &[&position_secs.to_string(), "absolute"])
+            .command("seek", &[&position_secs.to_string(), "absolute+exact"])
             .map_err(PlayerError::Mpv)
     }
 

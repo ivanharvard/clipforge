@@ -1,16 +1,11 @@
 use crate::{App, Theme};
 use slint::ComponentHandle;
 
-/// Applies the OS light/dark preference to the `Theme` global on startup.
+/// Applies ClipForge's theme to the `Theme` global on startup.
 ///
-/// Real OS detection (reading the Windows registry / GTK portal setting)
-/// is follow-up work; for now this always selects light mode so the app
-/// has a deterministic default to build against.
+/// The app ships as a fixed dark theme matching its brand mark; there is
+/// no light-mode toggle today. Reading an OS/user preference (e.g. to
+/// offer a light mode as a setting) is follow-up work.
 pub fn apply_system_theme(app: &App) {
-    let dark = detect_system_dark_mode();
-    app.global::<Theme>().set_dark(dark);
-}
-
-fn detect_system_dark_mode() -> bool {
-    false
+    app.global::<Theme>().set_dark(true);
 }

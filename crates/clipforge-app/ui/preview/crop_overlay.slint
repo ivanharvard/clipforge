@@ -1,0 +1,121 @@
+import { Theme } from "../theme.slint";
+import { CropState } from "../state.slint";
+
+// Draggable crop rectangle overlaid on the video preview when
+// `CropState.tool-active` is set. Reads/writes the same `CropState`
+// global as the numeric X/Y/W/H fields in the Crop panel, so the two stay
+// in sync automatically through the existing `CropState.changed()` /
+// `bindings/panels/crop.rs::on_changed` clamp-and-resize path.
+export component CropOverlay inherits Rectangle {
+    // Native pixel size of the loaded source video, used to map between
+    // screen space here and the source-pixel units `CropState` is in.
+    in property <int> source-width: 1;
+    in property <int> source-height: 1;
+
+    // 0 = idle, 1 = top-left, 2 = top-right, 3 = bottom-left,
+    // 4 = bottom-right, 5 = panning the whole rect.
+    property <int> drag-mode: 0;
+    // Source-pixel coordinates of whichever corner stays fixed during a
+    // resize drag (the opposite corner from the one being dragged).
+    property <int> anchor-x: 0;
+    property <int> anchor-y: 0;
+    // Source-pixel offset between the press point and the crop rect's
+    // top-left, used while panning.
+    property <int> pan-dx: 0;
+    property <int> pan-dy: 0;
+
+    property <float> scale: Math.min(
+        self.width / (Math.max(root.source-width, 1) * 1px),
+        self.height / (Math.max(root.source-height, 1) * 1px));
+    property <length> letterbox-x: (self.width - root.source-width * 1px * root.scale) / 2;
+    property <length> letterbox-y: (self.height - root.source-height * 1px * root.scale) / 2;
+
+    property <length> crop-x: root.letterbox-x + CropState.x * 1px * root.scale;
+    property <length> crop-y: root.letterbox-y + CropState.y * 1px * root.scale;
+    property <length> crop-w: CropState.width * 1px * root.scale;
+    property <length> crop-h: CropState.height * 1px * root.scale;
+
+    pure function to-source-x(screen-x: length) -> int {
+        return Math.max(0, Math.min(root.source-width, Math.round((screen-x - root.letterbox-x) / root.scale / 1px)));
+    }
+    pure function to-source-y(screen-y: length) -> int {
+        return Math.max(0, Math.min(root.source-height, Math.round((screen-y - root.letterbox-y) / root.scale / 1px)));
+    }
+
+    // Dimming bands outside the crop rect.
+    Rectangle {
+        x: 0; y: 0; width: 100%; height: root.crop-y;
+        background: #000000.with-alpha(0.5);
+    }
+    Rectangle {
+        x: 0; y: root.crop-y + root.crop-h; width: 100%; height: root.height - root.crop-y - root.crop-h;
+        background: #000000.with-alpha(0.5);
+    }
+    Rectangle {
+        x: 0; y: root.crop-y; width: root.crop-x; height: root.crop-h;
+        background: #000000.with-alpha(0.5);
+    }
+    Rectangle {
+        x: root.crop-x + root.crop-w; y: root.crop-y; width: root.width - root.crop-x - root.crop-w; height: root.crop-h;
+        background: #000000.with-alpha(0.5);
+    }
+
+    Rectangle {
+        x: root.crop-x; y: root.crop-y; width: root.crop-w; height: root.crop-h;
+        border-width: 2px;
+        border-color: Theme.accent;
+        background: transparent;
+    }
+
+    drag := TouchArea {
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                if (root.to-source-x(self.pressed-x) <= CropState.x + 20 && root.to-source-y(self.pressed-y) <= CropState.y + 20) {
+                    root.drag-mode = 1;
+                    root.anchor-x = CropState.x + CropState.width;
+                    root.anchor-y = CropState.y + CropState.height;
+                    CropState.snapshot-requested();
+                } else if (root.to-source-x(self.pressed-x) >= CropState.x + CropState.width - 20 && root.to-source-y(self.pressed-y) <= CropState.y + 20) {
+                    root.drag-mode = 2;
+                    root.anchor-x = CropState.x;
+                    root.anchor-y = CropState.y + CropState.height;
+                    CropState.snapshot-requested();
+                } else if (root.to-source-x(self.pressed-x) <= CropState.x + 20 && root.to-source-y(self.pressed-y) >= CropState.y + CropState.height - 20) {
+                    root.drag-mode = 3;
+                    root.anchor-x = CropState.x + CropState.width;
+                    root.anchor-y = CropState.y;
+                    CropState.snapshot-requested();
+                } else if (root.to-source-x(self.pressed-x) >= CropState.x + CropState.width - 20 && root.to-source-y(self.pressed-y) >= CropState.y + CropState.height - 20) {
+                    root.drag-mode = 4;
+                    root.anchor-x = CropState.x;
+                    root.anchor-y = CropState.y;
+                    CropState.snapshot-requested();
+                } else if (root.to-source-x(self.pressed-x) >= CropState.x && root.to-source-x(self.pressed-x) <= CropState.x + CropState.width
+                        && root.to-source-y(self.pressed-y) >= CropState.y && root.to-source-y(self.pressed-y) <= CropState.y + CropState.height) {
+                    root.drag-mode = 5;
+                    root.pan-dx = root.to-source-x(self.pressed-x) - CropState.x;
+                    root.pan-dy = root.to-source-y(self.pressed-y) - CropState.y;
+                    CropState.snapshot-requested();
+                } else {
+                    root.drag-mode = 0;
+                }
+            } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                root.drag-mode = 0;
+            }
+        }
+
+        moved => {
+            if (root.drag-mode == 5) {
+                CropState.x = root.to-source-x(self.mouse-x) - root.pan-dx;
+                CropState.y = root.to-source-y(self.mouse-y) - root.pan-dy;
+                CropState.changed();
+            } else if (root.drag-mode != 0) {
+                CropState.x = Math.min(root.to-source-x(self.mouse-x), root.anchor-x);
+                CropState.y = Math.min(root.to-source-y(self.mouse-y), root.anchor-y);
+                CropState.width = Math.max(1, Math.abs(root.anchor-x - root.to-source-x(self.mouse-x)));
+                CropState.height = Math.max(1, Math.abs(root.anchor-y - root.to-source-y(self.mouse-y)));
+                CropState.changed();
+            }
+        }
+    }
+}

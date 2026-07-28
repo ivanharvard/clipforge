@@ -28,12 +28,15 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 return;
             };
             let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
             let Some(project) = &mut app_state.project else {
                 return;
             };
             project.resolution.preset = preset_from_index(index);
+            let is_custom = project.resolution.preset == ResolutionPreset::Custom;
             app.global::<ResolutionState>()
-                .set_custom_fields_enabled(project.resolution.preset == ResolutionPreset::Custom);
+                .set_custom_fields_enabled(is_custom);
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
 
@@ -46,11 +49,13 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             let resolution_global = app.global::<ResolutionState>();
             let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
             let Some(project) = &mut app_state.project else {
                 return;
             };
             project.resolution.custom_width = resolution_global.get_custom_width().max(0) as u32;
             project.resolution.custom_height = resolution_global.get_custom_height().max(0) as u32;
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
 
@@ -63,11 +68,14 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             let locked = {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
                 project.resolution.aspect_locked = !project.resolution.aspect_locked;
-                project.resolution.aspect_locked
+                let locked = project.resolution.aspect_locked;
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
+                locked
             };
             app.global::<ResolutionState>().set_aspect_locked(locked);
         });

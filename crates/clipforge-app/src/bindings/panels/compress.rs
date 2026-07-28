@@ -43,11 +43,13 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
                 let value = app.global::<CompressState>().get_mode_value();
                 project.compress.mode = quality_mode_from_index(index, value);
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             update_estimate(&app, &state);
         });
@@ -62,11 +64,13 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
                 let index = app.global::<CompressState>().get_mode_index();
                 project.compress.mode = quality_mode_from_index(index, value);
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             update_estimate(&app, &state);
         });

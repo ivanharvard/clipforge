@@ -10,14 +10,20 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     let audio = app.global::<AudioState>();
 
     {
+        let app_weak = app.as_weak();
         let state = state.clone();
         audio.on_volume_changed(move |volume| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
             let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
             let Some(project) = &mut app_state.project else {
                 return;
             };
             project.audio.volume = volume;
             let _ = app_state.player.set_volume(volume as f64 * 100.0);
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
 
@@ -30,11 +36,14 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             let muted = {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
                 project.audio.muted = !project.audio.muted;
-                project.audio.muted
+                let muted = project.audio.muted;
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
+                muted
             };
             app.global::<AudioState>().set_muted(muted);
         });
@@ -49,13 +58,19 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     }
 
     {
+        let app_weak = app.as_weak();
         let state = state.clone();
         audio.on_normalize_toggled(move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
             let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
             let Some(project) = &mut app_state.project else {
                 return;
             };
             project.audio.normalize = !project.audio.normalize;
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
 }

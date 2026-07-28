@@ -2,86 +2,112 @@ import { Theme } from "../theme.slint";
 import { PlaybackState } from "../state.slint";
 import { IconButton } from "../components/icon_button.slint";
 
-// Bottom bar: in/out trim track, playhead, and transport controls
+// Bottom bar: transport control beside a thick in/out trim track
 // (DESIGN.md section 15). Positions are 0.0-1.0 fractions of the clip
 // duration; Rust converts to/from milliseconds via `PlaybackState`.
 export component ScrubberBar inherits Rectangle {
-    height: 56px;
+    height: 72px;
     background: Theme.surface;
     border-width: 1px;
     border-color: Theme.border-color;
 
-    VerticalLayout {
-        padding: Theme.space-2;
-        spacing: Theme.space-1;
+    HorizontalLayout {
+        padding: Theme.space-3;
+        spacing: Theme.space-3;
 
-        HorizontalLayout {
-            spacing: Theme.space-3;
+        IconButton {
+            icon-text: PlaybackState.playing ? "⏸" : "▶";
+            clicked => { PlaybackState.play-pause-clicked(); }
+        }
 
-            Text {
-                text: PlaybackState.current-time-text;
-                color: Theme.text-secondary;
-                font-size: Theme.text-xs;
-                vertical-alignment: center;
-            }
+        Text {
+            text: PlaybackState.current-time-text;
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
+        }
 
-            track := Rectangle {
-                background: Theme.surface-alt;
-                border-radius: Theme.radius-control;
-                horizontal-stretch: 1;
+        track := Rectangle {
+            // 0 = not dragging, 1 = dragging the in-handle, 2 = the out-handle.
+            property <int> drag-target: 0;
+            // How close (in px) a press must be to a handle to grab it
+            // instead of seeking.
+            property <length> hit-radius: 10px;
 
-                TouchArea {
-                    clicked => {
+            background: Theme.surface-alt;
+            border-radius: Theme.radius-control;
+            horizontal-stretch: 1;
+            height: 40px;
+            clip: true;
+
+            TouchArea {
+                clicked => {
+                    if (track.drag-target == 0) {
                         PlaybackState.seek-requested(self.mouse-x / self.width);
                     }
                 }
 
-                Rectangle {
-                    x: PlaybackState.in-point-position * track.width;
-                    width: (PlaybackState.out-point-position - PlaybackState.in-point-position) * track.width;
-                    height: 100%;
-                    background: Theme.accent.with-alpha(0.2);
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down) {
+                        if (Math.abs(self.pressed-x / self.width - PlaybackState.in-point-position) * self.width < track.hit-radius) {
+                            track.drag-target = 1;
+                            PlaybackState.trim-drag-started();
+                        } else if (Math.abs(self.pressed-x / self.width - PlaybackState.out-point-position) * self.width < track.hit-radius) {
+                            track.drag-target = 2;
+                            PlaybackState.trim-drag-started();
+                        } else {
+                            track.drag-target = 0;
+                        }
+                    } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                        track.drag-target = 0;
+                    }
                 }
 
-                Rectangle {
-                    x: PlaybackState.playhead-position * track.width - 1px;
-                    width: 2px;
-                    height: 100%;
-                    background: Theme.accent;
-                }
-
-                Rectangle {
-                    x: PlaybackState.in-point-position * track.width - 3px;
-                    width: 6px;
-                    height: 100%;
-                    background: Theme.accent;
-                    border-radius: 2px;
-                }
-
-                Rectangle {
-                    x: PlaybackState.out-point-position * track.width - 3px;
-                    width: 6px;
-                    height: 100%;
-                    background: Theme.accent;
-                    border-radius: 2px;
+                moved => {
+                    if (track.drag-target == 1) {
+                        PlaybackState.in-point-drag-requested(self.mouse-x / self.width);
+                    } else if (track.drag-target == 2) {
+                        PlaybackState.out-point-drag-requested(self.mouse-x / self.width);
+                    }
                 }
             }
 
-            Text {
-                text: PlaybackState.duration-text;
-                color: Theme.text-secondary;
-                font-size: Theme.text-xs;
-                vertical-alignment: center;
+            Rectangle {
+                x: PlaybackState.in-point-position * track.width;
+                width: (PlaybackState.out-point-position - PlaybackState.in-point-position) * track.width;
+                height: 100%;
+                background: Theme.accent.with-alpha(0.2);
+            }
+
+            Rectangle {
+                x: PlaybackState.playhead-position * track.width - 1px;
+                width: 2px;
+                height: 100%;
+                background: Theme.accent;
+            }
+
+            Rectangle {
+                x: PlaybackState.in-point-position * track.width - 4px;
+                width: 8px;
+                height: 100%;
+                background: Theme.accent;
+                border-radius: 3px;
+            }
+
+            Rectangle {
+                x: PlaybackState.out-point-position * track.width - 4px;
+                width: 8px;
+                height: 100%;
+                background: Theme.accent;
+                border-radius: 3px;
             }
         }
 
-        HorizontalLayout {
-            alignment: center;
-
-            IconButton {
-                icon-text: PlaybackState.playing ? "⏸" : "▶";
-                clicked => { PlaybackState.play-pause-clicked(); }
-            }
+        Text {
+            text: PlaybackState.duration-text;
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
         }
     }
 }

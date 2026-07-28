@@ -59,6 +59,37 @@ impl PlayerContext {
             .map_err(PlayerError::Mpv)
     }
 
+    /// Applies rotation (clockwise `degrees`, one of 0/90/180/270) and
+    /// horizontal/vertical flips to the live preview, via mpv's `vf`
+    /// filter chain — the same `transpose`/`hflip`/`vflip` filters
+    /// `clipforge_core::export::ffmpeg_args` builds for the real export,
+    /// so the preview matches what actually gets exported. Building one
+    /// combined filter string (rather than setting `vf` separately per
+    /// transform) avoids each call clobbering the others.
+    pub fn set_transform(
+        &self,
+        rotation_degrees: u16,
+        flip_horizontal: bool,
+        flip_vertical: bool,
+    ) -> PlayerResult<()> {
+        let mut filters = Vec::new();
+        match rotation_degrees {
+            90 => filters.push("transpose=1".to_string()),
+            180 => filters.push("transpose=2,transpose=2".to_string()),
+            270 => filters.push("transpose=2".to_string()),
+            _ => {}
+        }
+        if flip_horizontal {
+            filters.push("hflip".to_string());
+        }
+        if flip_vertical {
+            filters.push("vflip".to_string());
+        }
+        self.mpv()
+            .set_property("vf", filters.join(","))
+            .map_err(PlayerError::Mpv)
+    }
+
     pub fn position_secs(&self) -> PlayerResult<f64> {
         self.mpv()
             .get_property("time-pos")

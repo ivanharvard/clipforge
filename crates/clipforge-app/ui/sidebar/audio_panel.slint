@@ -13,6 +13,7 @@ export component AudioPanel inherits PanelSection {
         spacing: Theme.space-2;
 
         LabeledSlider {
+            horizontal-stretch: 1;
             label: "Volume";
             value-text: "\{Math.round(AudioState.volume * 100)}%";
             minimum: 0;

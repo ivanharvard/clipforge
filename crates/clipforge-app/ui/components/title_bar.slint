@@ -1,14 +1,16 @@
 import { Theme } from "../theme.slint";
 import { IconButton } from "icon_button.slint";
 
-// One compact custom title bar, flush with the window edge, used on both
-// Windows and Linux instead of native window chrome (DESIGN.md section 7).
+// One compact custom title bar, flush with the window edge, carrying the
+// app's own actions (DESIGN.md section 7). Window controls (minimize/
+// maximize/close) are native OS chrome, not drawn here.
 export component TitleBar inherits Rectangle {
     callback open-clip-clicked;
     callback export-clicked;
-    callback minimize-clicked;
-    callback maximize-clicked;
-    callback close-clicked;
+    callback undo-clicked;
+    callback redo-clicked;
+    in property <bool> can-undo: false;
+    in property <bool> can-redo: false;
 
     height: 36px;
     background: Theme.surface;
@@ -17,14 +19,8 @@ export component TitleBar inherits Rectangle {
 
     HorizontalLayout {
         padding-left: Theme.space-4;
-        padding-right: Theme.space-2;
+        padding-right: Theme.space-4;
         spacing: Theme.space-3;
-
-        Image {
-            source: @image-url("../../icons/src/app-icon.svg");
-            width: 18px;
-            height: 18px;
-        }
 
         Text {
             text: "Open Clip";
@@ -35,6 +31,18 @@ export component TitleBar inherits Rectangle {
             TouchArea {
                 clicked => { root.open-clip-clicked(); }
             }
+        }
+
+        IconButton {
+            icon-text: "↶";
+            is-enabled: root.can-undo;
+            clicked => { root.undo-clicked(); }
+        }
+
+        IconButton {
+            icon-text: "↷";
+            is-enabled: root.can-redo;
+            clicked => { root.redo-clicked(); }
         }
 
         Rectangle {}
@@ -49,9 +57,5 @@ export component TitleBar inherits Rectangle {
                 clicked => { root.export-clicked(); }
             }
         }
-
-        IconButton { icon-text: "—"; clicked => { root.minimize-clicked(); } }
-        IconButton { icon-text: "▢"; clicked => { root.maximize-clicked(); } }
-        IconButton { icon-text: "✕"; clicked => { root.close-clicked(); } }
     }
 }

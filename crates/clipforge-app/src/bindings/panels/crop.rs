@@ -12,25 +12,50 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     {
         let app_weak = app.as_weak();
         let state = state.clone();
+        crop.on_snapshot_requested(move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
+        });
+    }
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
         crop.on_changed(move || {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
             let crop_global = app.global::<CropState>();
-            let mut app_state = state.borrow_mut();
-            let Some(project) = &mut app_state.project else {
-                return;
-            };
+            let (x, y, width, height) = {
+                let mut app_state = state.borrow_mut();
+                let Some(project) = &mut app_state.project else {
+                    return;
+                };
 
-            project.crop.x = crop_global.get_x().max(0) as u32;
-            project.crop.y = crop_global.get_y().max(0) as u32;
-            project.crop.aspect_locked = crop_global.get_aspect_locked();
-            project.crop.resize(
-                crop_global.get_width().max(0) as u32,
-                crop_global.get_height().max(0) as u32,
-                project.source_width,
-                project.source_height,
-            );
+                project.crop.x = crop_global.get_x().max(0) as u32;
+                project.crop.y = crop_global.get_y().max(0) as u32;
+                project.crop.aspect_locked = crop_global.get_aspect_locked();
+                project.crop.resize(
+                    crop_global.get_width().max(0) as u32,
+                    crop_global.get_height().max(0) as u32,
+                    project.source_width,
+                    project.source_height,
+                );
+                (
+                    project.crop.x,
+                    project.crop.y,
+                    project.crop.width,
+                    project.crop.height,
+                )
+            };
+            crop_global.set_x(x as i32);
+            crop_global.set_y(y as i32);
+            crop_global.set_width(width as i32);
+            crop_global.set_height(height as i32);
         });
     }
 
@@ -43,11 +68,14 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             let locked = {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
                 project.crop.aspect_locked = !project.crop.aspect_locked;
-                project.crop.aspect_locked
+                let locked = project.crop.aspect_locked;
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
+                locked
             };
             app.global::<CropState>().set_aspect_locked(locked);
         });
@@ -62,6 +90,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             let (width, height) = {
                 let mut app_state = state.borrow_mut();
+                app_state.push_undo_snapshot();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
@@ -69,7 +98,9 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     project.source_width,
                     project.source_height,
                 );
-                (project.crop.width, project.crop.height)
+                let dims = (project.crop.width, project.crop.height);
+                crate::bindings::update_undo_redo_buttons(&app, &app_state);
+                dims
             };
             let crop = app.global::<CropState>();
             crop.set_x(0);

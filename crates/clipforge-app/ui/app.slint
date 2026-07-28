@@ -35,32 +35,67 @@ export {
 export component App inherits Window {
     title: "ClipForge";
     icon: @image-url("../icons/src/app-icon.svg");
-    width: 1100px;
-    height: 680px;
+    preferred-width: 1100px;
+    preferred-height: 680px;
+    min-width: 960px;
+    min-height: 600px;
     background: Theme.bg;
 
     in property <bool> has-clip: false;
     in property <image> preview-frame;
+    in property <string> load-error-text: "";
+    in property <int> source-width: 1;
+    in property <int> source-height: 1;
+    in property <bool> can-undo: false;
+    in property <bool> can-redo: false;
 
     callback open-clip-clicked <=> title-bar.open-clip-clicked;
     callback export-clicked <=> title-bar.export-clicked;
+    callback undo-requested <=> title-bar.undo-clicked;
+    callback redo-requested <=> title-bar.redo-clicked;
 
-    VerticalLayout {
-        title-bar := TitleBar {}
+    FocusScope {
+        // Grabs focus on startup so Ctrl/Cmd+Z work without first clicking
+        // into the window; individual controls (text fields, spin boxes)
+        // still take focus normally when clicked.
+        init => { self.focus(); }
 
-        HorizontalLayout {
-            vertical-stretch: 1;
-
-            VideoPreview {
-                horizontal-stretch: 1;
-                has-clip: root.has-clip;
-                frame: root.preview-frame;
+        key-pressed(event) => {
+            if (event.text == "z" && (event.modifiers.control || event.modifiers.meta)) {
+                if (event.modifiers.shift) {
+                    root.redo-requested();
+                } else {
+                    root.undo-requested();
+                }
+                accept
+            } else {
+                reject
             }
-
-            Sidebar {}
         }
 
-        ScrubberBar {}
+        VerticalLayout {
+            title-bar := TitleBar {
+                can-undo: root.can-undo;
+                can-redo: root.can-redo;
+            }
+
+            HorizontalLayout {
+                vertical-stretch: 1;
+
+                VideoPreview {
+                    horizontal-stretch: 1;
+                    has-clip: root.has-clip;
+                    frame: root.preview-frame;
+                    error-text: root.load-error-text;
+                    source-width: root.source-width;
+                    source-height: root.source-height;
+                }
+
+                Sidebar {}
+            }
+
+            ScrubberBar {}
+        }
     }
 
     if ExportDialogState.visible: Rectangle {

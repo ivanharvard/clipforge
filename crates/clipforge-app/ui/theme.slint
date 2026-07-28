@@ -2,7 +2,7 @@
 // behind each value — components must reference these, never hardcode a
 // color/spacing/radius value of their own.
 export global Theme {
-    in-out property <bool> dark: false;
+    in-out property <bool> dark: true;
 
     // Spacing scale (4px base).
     out property <length> space-1: 4px;
@@ -16,15 +16,16 @@ export global Theme {
     out property <length> radius-control: 6px;
     out property <length> radius-panel: 8px;
 
-    // Color roles (light / dark).
-    out property <color> bg: root.dark ? #1B1C1E : #F5F5F6;
-    out property <color> surface: root.dark ? #242528 : #FFFFFF;
-    out property <color> surface-alt: root.dark ? #2C2D30 : #ECECEE;
-    out property <color> border-color: root.dark ? #3A3B3F : #DCDCDF;
-    out property <color> text-primary: root.dark ? #F0F0F1 : #1A1A1C;
-    out property <color> text-secondary: root.dark ? #9A9BA0 : #6B6C70;
-    out property <color> accent: root.dark ? #5B93FF : #3A7DFF;
-    out property <color> accent-hover: root.dark ? #7AA6FF : #2E67E0;
+    // Color roles (light / dark). Dark values are tuned to the app's
+    // brand mark: a near-black background with an orange accent.
+    out property <color> bg: root.dark ? #000000 : #F5F5F6;
+    out property <color> surface: root.dark ? #141415 : #FFFFFF;
+    out property <color> surface-alt: root.dark ? #1E1E20 : #ECECEE;
+    out property <color> border-color: root.dark ? #2C2C2F : #DCDCDF;
+    out property <color> text-primary: root.dark ? #F5F5F6 : #1A1A1C;
+    out property <color> text-secondary: root.dark ? #A0A0A5 : #6B6C70;
+    out property <color> accent: root.dark ? #F0791C : #3A7DFF;
+    out property <color> accent-hover: root.dark ? #FF9A42 : #2E67E0;
     out property <color> danger: root.dark ? #F16C71 : #E5484D;
     out property <color> success: root.dark ? #4CCB84 : #2FA968;
 

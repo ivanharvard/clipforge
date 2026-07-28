@@ -50,19 +50,24 @@ Colors are defined as semantic roles, never as raw hex values in component
 files. Both themes must meet WCAG AA contrast (4.5:1 for body text, 3:1 for
 large text/icons) against their paired background.
 
+The app ships as a fixed dark theme by default (`Theme.dark: true`), tuned
+to the app icon's brand mark — a near-black background with an orange
+accent. The light values remain defined for a possible future preference
+toggle but aren't reachable today.
+
 | Role | Light | Dark | Usage |
 |------|-------|------|-------|
-| `bg` | `#F5F5F6` | `#1B1C1E` | window background |
-| `surface` | `#FFFFFF` | `#242528` | panel / card background |
-| `surface-alt` | `#ECECEE` | `#2C2D30` | recessed areas, scrubber track |
-| `border` | `#DCDCDF` | `#3A3B3F` | 1px separators, control outlines |
-| `text-primary` | `#1A1A1C` | `#F0F0F1` | primary text/icons |
-| `text-secondary` | `#6B6C70` | `#9A9BA0` | labels, timecodes, hints |
-| `accent` | `#3A7DFF` | `#5B93FF` | primary action, playhead, active state |
-| `accent-hover` | `#2E67E0` | `#7AA6FF` | hover/pressed state of accent elements |
+| `bg` | `#F5F5F6` | `#000000` | window background |
+| `surface` | `#FFFFFF` | `#141415` | panel / card background |
+| `surface-alt` | `#ECECEE` | `#1E1E20` | recessed areas, scrubber track |
+| `border` | `#DCDCDF` | `#2C2C2F` | 1px separators, control outlines |
+| `text-primary` | `#1A1A1C` | `#F5F5F6` | primary text/icons |
+| `text-secondary` | `#6B6C70` | `#A0A0A5` | labels, timecodes, hints |
+| `accent` | `#3A7DFF` | `#F0791C` | primary action, playhead, active state |
+| `accent-hover` | `#2E67E0` | `#FF9A42` | hover/pressed state of accent elements |
 | `danger` | `#E5484D` | `#F16C71` | destructive actions, error state |
 | `success` | `#2FA968` | `#4CCB84` | export success state |
-| `focus-ring` | `#3A7DFF` @ 40% opacity | `#5B93FF` @ 40% opacity | keyboard focus outline |
+| `focus-ring` | `#3A7DFF` @ 40% opacity | `#F0791C` @ 40% opacity | keyboard focus outline |
 
 (Exact hex values are a starting point and may be refined once implemented in
 `theme.slint`; the role names and pairing rule are the contract components
@@ -102,13 +107,14 @@ must follow.)
 - One compact custom title bar, height 36px, flush with the window's top
   edge (`radius-none`).
 - Draggable region covers the bar except interactive controls.
-- Custom-drawn window controls (minimize/maximize/close) rendered with the
-  app's own icon set — not OS-native buttons — so control order and styling
-  is identical on Windows and Linux (left-to-right: minimize, maximize,
-  close, matching Windows convention, applied uniformly on both OSes for
-  consistency).
-- Left side: app icon + "Open Clip" action. Right side: "Export" action, then
+- Window controls (minimize/maximize/close) are native OS chrome, not
+  app-drawn — the custom bar sits inside the OS-decorated window and only
+  carries app actions, so it doesn't duplicate or fight the OS's own
   window controls.
+- Left side: "Open Clip" action, then undo/redo icon buttons (dimmed when
+  the corresponding history stack is empty — see section 20). Right side:
+  "Export" action. No app icon/logo is drawn in the bar itself (it's
+  already the window/taskbar icon).
 
 ## 8. Component Anatomy — Preview Pane
 
@@ -122,25 +128,46 @@ must follow.)
 
 - Fixed vertical stack of the 5 panels (Transform, Crop, Resolution, Audio,
   Compress), each using the shared `panel_section` shell.
-- Each panel has a header row (icon + label, `text-md`) and a body with
-  `space-4` padding.
-- Panels are not collapsible in v1 (fixed-stack, not accordion) — all 5 are
-  visible at once, scrolling as a single vertical list if the window is
-  short.
-- Sidebar width is fixed (not user-resizable in v1).
+- Each panel has a clickable header row (disclosure glyph + icon + label,
+  `text-md`) that independently expands/collapses that panel's body —
+  there is no accordion/exclusivity between panels, so any combination can
+  be open at once. Expanded by default.
+- Within a panel, related controls are grouped under a small `text-xs`
+  caption (e.g. Transform's "Rotate"/"Flip", Crop's "Position"/"Size") when
+  a panel has more than one logical group of controls.
+- Every numeric-field row holds exactly one wide control (label beside a
+  full-width field), never two side by side — this is a hard rule, not
+  just today's specific fields, so the sidebar can't regress into
+  off-screen overflow as fields change.
+- Sidebar width is fixed (not user-resizable in v1) at 300px. The root
+  window additionally sets `min-width`/`min-height` so it can never be
+  resized smaller than the sidebar's true content needs — on platforms
+  that persist window frames between launches (e.g. macOS), this stops a
+  one-time resize from permanently reopening the app in a broken layout.
+  The panel stack scrolls as a whole if expanded content is too tall for
+  the window.
 
 ## 10. Component Anatomy — Transform Panel
 
-- Rotate left / rotate right buttons (90° increments) as a horizontal icon
-  button pair.
-- Flip horizontal / flip vertical as a horizontal toggle-icon-button pair.
-- Reset-to-default icon button aligned right of the header.
+- "Rotate" group: rotate left / rotate right buttons (90° increments) as a
+  horizontal icon button pair.
+- "Flip" group: flip horizontal / flip vertical as a horizontal
+  toggle-icon-button pair.
+- Reset-to-default icon button, right-aligned below both groups.
+- Rotation and flip apply live to the preview (via the player's filter
+  chain), not only at export.
 
 ## 11. Component Anatomy — Crop Panel
 
-- Four numeric fields (X, Y, Width, Height) in a 2×2 grid, monospace type.
-- Aspect-lock toggle (link icon) between Width and Height.
-- Reset action returns to full-frame crop.
+- "Position" group (X, Y) and "Size" group (W, H): one full-width numeric
+  field per row, monospace type — never two fields side by side (see
+  section 9).
+- A crop-tool toggle (alongside the aspect-lock and reset icons) overlays
+  draggable corner handles directly on the video preview when active,
+  read/writing the same crop state as the numeric fields so the two never
+  disagree. Dragging inside the crop rect pans it; dragging a corner
+  resizes it, anchored on the opposite corner.
+- Aspect-lock toggle (link icon) and reset action in the footer row.
 
 ## 12. Component Anatomy — Resolution Panel
 
@@ -167,14 +194,21 @@ must follow.)
 
 ## 15. Component Anatomy — Timeline / Scrubber Bar
 
-- Full-width bar beneath the preview/sidebar split, height 56px.
-- Track: `surface-alt` background, `radius-control` ends.
-- Playhead: a thin `accent`-colored vertical line with a circular handle.
-- In/out handles: distinct filled markers in `accent`, draggable, clamped so
-  in ≤ out.
+- Full-width bar beneath the preview/sidebar split, height 72px, laid out
+  as a single row: play/pause icon button, current-time label, the track
+  (stretching to fill remaining width), duration label — the transport
+  control sits beside the track, not in a separate row under it.
+- Track: `surface-alt` background, `radius-control` ends, 40px tall (thick
+  enough to be a comfortable drag target on its own).
+- Playhead: a thin `accent`-colored vertical line.
+- In/out handles: `accent` markers, draggable with a wider invisible hit
+  area (~20px) than their visual width so they're easy to grab without
+  needing to be visually oversized. Dragging clamps so in ≤ out (reusing
+  `ClipBounds::set_in_point`/`set_out_point`'s existing clamping) and
+  pushes exactly one undo snapshot per drag, not per move event.
+  Click-to-seek still works anywhere on the track that isn't a handle.
 - Time labels: current in-point (left), duration/out-point (right), both in
   `text-mono`.
-- Centered play/pause icon button below the track.
 
 ## 16. Component Anatomy — Export Dialog
 
@@ -211,3 +245,23 @@ Every interactive control defines these states consistently:
   panel-expand only.
 - The playhead and scrubber position updates are never animated or eased —
   they must track playback/drag input exactly, with zero perceived lag.
+
+## 20. Undo/Redo History
+
+- Global, covering every panel (Transform, Crop, Resolution, Audio,
+  Compress) and the scrubber's in/out trim points — not scoped to a single
+  panel.
+- Implemented as whole-`Project` snapshots (the project model is small and
+  cheap to clone) rather than reverse-operation commands: each discrete
+  user action pushes one snapshot of the state *before* the action, and
+  undo/redo swap the current project with the top of the corresponding
+  stack. A new edit after an undo discards the old redo branch, matching
+  standard editor behavior.
+- One history entry per discrete action — a full drag (crop-tool resize,
+  scrubber in/out-handle drag) is one entry, not one per intermediate
+  pointer-move event. The volume slider is a known exception (it pushes
+  one entry per move event) since the underlying widget doesn't expose a
+  separate press/release signal.
+- Primary interface: Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS). Secondary:
+  small undo/redo icon buttons in the title bar, dimmed when their stack
+  is empty. There is no visual history-list panel.

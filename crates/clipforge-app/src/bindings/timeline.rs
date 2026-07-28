@@ -8,8 +8,8 @@ use crate::{App, PlaybackState};
 
 /// Pushes the loaded project's clip bounds and current playback position
 /// into `PlaybackState` so the scrubber bar reflects them. Called after
-/// loading a clip; should also run from a playback-position polling timer
-/// once that's wired up alongside `video_surface`'s frame timer.
+/// loading a clip, and on every tick of `video_surface`'s frame timer so
+/// the playhead and time text track playback.
 pub fn sync_playback_state(app: &App, state: &Rc<RefCell<AppState>>) {
     let state = state.borrow();
     let Some(project) = &state.project else {
@@ -38,7 +38,61 @@ pub fn sync_playback_state(app: &App, state: &Rc<RefCell<AppState>>) {
     }
 }
 
-/// No dedicated in/out drag callbacks exist yet in the scrubber bar UI
-/// (only click-to-seek) — dragging the in/out handles is follow-up UI
-/// work, so there's nothing else to wire here yet.
-pub fn wire(_app: &App, _state: &Rc<RefCell<AppState>>) {}
+pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
+    let playback = app.global::<PlaybackState>();
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        playback.on_trim_drag_started(move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
+        });
+    }
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        playback.on_in_point_drag_requested(move |fraction| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            let Some(project) = &mut app_state.project else {
+                return;
+            };
+            let duration = project.clip_bounds.duration();
+            let ms = (fraction.clamp(0.0, 1.0) as f64 * duration.as_ms() as f64) as u64;
+            project
+                .clip_bounds
+                .set_in_point(clipforge_core::timeline::Timestamp::from_ms(ms));
+            drop(app_state);
+            sync_playback_state(&app, &state);
+        });
+    }
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        playback.on_out_point_drag_requested(move |fraction| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            let Some(project) = &mut app_state.project else {
+                return;
+            };
+            let duration = project.clip_bounds.duration();
+            let ms = (fraction.clamp(0.0, 1.0) as f64 * duration.as_ms() as f64) as u64;
+            project
+                .clip_bounds
+                .set_out_point(clipforge_core::timeline::Timestamp::from_ms(ms));
+            drop(app_state);
+            sync_playback_state(&app, &state);
+        });
+    }
+}

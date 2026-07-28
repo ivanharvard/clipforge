@@ -14,6 +14,11 @@ export global PlaybackState {
 
     callback play-pause-clicked();
     callback seek-requested(float);
+    callback in-point-drag-requested(float);
+    callback out-point-drag-requested(float);
+    // Fired once when an in/out handle drag starts (not per move event) so
+    // Rust can push exactly one undo snapshot per drag.
+    callback trim-drag-started();
 }
 
 export global TransformState {
@@ -33,8 +38,13 @@ export global CropState {
     in-out property <int> width: 0;
     in-out property <int> height: 0;
     in-out property <bool> aspect-locked: false;
+    in-out property <bool> tool-active: false;
 
     callback changed();
+    // Fired once per discrete edit (one field commit, or the start of an
+    // on-canvas drag) — never per-move during a drag — so Rust can push
+    // exactly one undo snapshot per user action rather than one per event.
+    callback snapshot-requested();
     callback aspect-lock-toggled();
     callback reset-clicked();
 }

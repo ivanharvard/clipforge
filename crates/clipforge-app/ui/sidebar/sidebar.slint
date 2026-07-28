@@ -7,10 +7,10 @@ import { AudioPanel } from "audio_panel.slint";
 import { CompressPanel } from "compress_panel.slint";
 
 // Fixed vertical stack of the 5 editing panels (DESIGN.md section 9).
-// Not collapsible in v1 — all panels are visible at once, scrolling as a
-// single list if the window is too short to fit them all.
+// Each panel is independently collapsible (see PanelSection); the stack
+// scrolls as a whole if expanded content is too tall for the window.
 export component Sidebar inherits Rectangle {
-    width: 280px;
+    width: 300px;
 
     scroll := ScrollView {
         VerticalLayout {

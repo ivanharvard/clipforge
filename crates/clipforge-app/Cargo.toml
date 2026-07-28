@@ -9,6 +9,7 @@ clipforge-core.workspace = true
 clipforge-player.workspace = true
 slint.workspace = true
 anyhow.workspace = true
+rfd.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true

@@ -17,17 +17,60 @@ export component ResolutionPanel inherits PanelSection {
         }
     }
 
-    HorizontalLayout {
-        spacing: Theme.space-2;
+    VerticalLayout {
+        spacing: Theme.space-1;
 
-        SpinBox {
-            enabled: ResolutionState.custom-fields-enabled;
-            value: ResolutionState.custom-width;
-            edited(v) => {
-                ResolutionState.custom-width = v;
-                ResolutionState.custom-size-changed();
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            Text {
+                text: "W";
+                color: Theme.text-secondary;
+                font-size: Theme.text-sm;
+                vertical-alignment: center;
+                width: 16px;
+            }
+
+            SpinBox {
+                horizontal-stretch: 1;
+                enabled: ResolutionState.custom-fields-enabled;
+                minimum: 0;
+                maximum: 10000;
+                value: ResolutionState.custom-width;
+                edited(v) => {
+                    ResolutionState.custom-width = v;
+                    ResolutionState.custom-size-changed();
+                }
             }
         }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            Text {
+                text: "H";
+                color: Theme.text-secondary;
+                font-size: Theme.text-sm;
+                vertical-alignment: center;
+                width: 16px;
+            }
+
+            SpinBox {
+                horizontal-stretch: 1;
+                enabled: ResolutionState.custom-fields-enabled;
+                minimum: 0;
+                maximum: 10000;
+                value: ResolutionState.custom-height;
+                edited(v) => {
+                    ResolutionState.custom-height = v;
+                    ResolutionState.custom-size-changed();
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
 
         IconButton {
             icon-text: "🔗";
@@ -35,13 +78,6 @@ export component ResolutionPanel inherits PanelSection {
             clicked => { ResolutionState.aspect-lock-toggled(); }
         }
 
-        SpinBox {
-            enabled: ResolutionState.custom-fields-enabled;
-            value: ResolutionState.custom-height;
-            edited(v) => {
-                ResolutionState.custom-height = v;
-                ResolutionState.custom-size-changed();
-            }
-        }
+        Rectangle {}
     }
 }

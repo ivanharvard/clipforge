@@ -1,0 +1,9 @@
+import { Theme } from "../theme.slint";
+
+// A small caption above a labeled sub-group of controls within a panel
+// (e.g. "Rotate"/"Flip" under Transform, "Position"/"Size" under Crop).
+export component GroupLabel inherits Text {
+    color: Theme.text-secondary;
+    font-size: Theme.text-xs;
+    font-weight: 600;
+}

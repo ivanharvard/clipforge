@@ -2,39 +2,60 @@ import { Theme } from "../theme.slint";
 import { TransformState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
 import { IconButton } from "../components/icon_button.slint";
+import { GroupLabel } from "../components/group_label.slint";
 
 export component TransformPanel inherits PanelSection {
     title: "Transform";
     icon-text: "⟳";
 
+    VerticalLayout {
+        spacing: Theme.space-1;
+
+        GroupLabel { text: "Rotate"; }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            IconButton {
+                icon-text: "⟲";
+                clicked => { TransformState.rotate-counter-clockwise-clicked(); }
+            }
+
+            IconButton {
+                icon-text: "⟳";
+                clicked => { TransformState.rotate-clockwise-clicked(); }
+            }
+
+            Rectangle {}
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-1;
+
+        GroupLabel { text: "Flip"; }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            IconButton {
+                icon-text: "⇋";
+                active: TransformState.flip-horizontal;
+                clicked => { TransformState.flip-horizontal-toggled(); }
+            }
+
+            IconButton {
+                icon-text: "⇅";
+                active: TransformState.flip-vertical;
+                clicked => { TransformState.flip-vertical-toggled(); }
+            }
+
+            Rectangle {}
+        }
+    }
+
     HorizontalLayout {
-        spacing: Theme.space-2;
-
-        IconButton {
-            icon-text: "⟲";
-            clicked => { TransformState.rotate-counter-clockwise-clicked(); }
-        }
-
-        IconButton {
-            icon-text: "⟳";
-            clicked => { TransformState.rotate-clockwise-clicked(); }
-        }
-
-        Rectangle {}
-
-        IconButton {
-            icon-text: "⇋";
-            active: TransformState.flip-horizontal;
-            clicked => { TransformState.flip-horizontal-toggled(); }
-        }
-
-        IconButton {
-            icon-text: "⇅";
-            active: TransformState.flip-vertical;
-            clicked => { TransformState.flip-vertical-toggled(); }
-        }
-
-        Rectangle {}
+        alignment: end;
 
         IconButton {
             icon-text: "↺";

@@ -28,32 +28,35 @@ pub fn start_preview_timer(app: &App, state: &Rc<RefCell<AppState>>) -> Timer {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
-            let state = state.borrow();
-            if state.project.is_none() {
-                return;
-            }
-            if state
-                .render_ctx
-                .render_frame(&mut frame, PREVIEW_WIDTH, PREVIEW_HEIGHT)
-                .is_err()
             {
-                return;
-            }
+                let state_ref = state.borrow();
+                if state_ref.project.is_none() {
+                    return;
+                }
+                if state_ref
+                    .render_ctx
+                    .render_frame(&mut frame, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+                    .is_err()
+                {
+                    return;
+                }
 
-            let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(frame.width, frame.height);
-            // mpv's "rgb0" format leaves the 4th byte as uninitialized
-            // garbage rather than a real alpha channel, so force it opaque
-            // when copying into the Slint buffer.
-            for (src, dst) in frame.rgba.chunks_exact(4).zip(buffer.make_mut_slice()) {
-                *dst = Rgba8Pixel {
-                    r: src[0],
-                    g: src[1],
-                    b: src[2],
-                    a: 255,
-                };
-            }
+                let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(frame.width, frame.height);
+                // mpv's "rgb0" format leaves the 4th byte as uninitialized
+                // garbage rather than a real alpha channel, so force it opaque
+                // when copying into the Slint buffer.
+                for (src, dst) in frame.rgba.chunks_exact(4).zip(buffer.make_mut_slice()) {
+                    *dst = Rgba8Pixel {
+                        r: src[0],
+                        g: src[1],
+                        b: src[2],
+                        a: 255,
+                    };
+                }
 
-            app.set_preview_frame(slint::Image::from_rgba8(buffer));
+                app.set_preview_frame(slint::Image::from_rgba8(buffer));
+            }
+            crate::bindings::sync_playback_state(&app, &state);
         },
     );
     timer

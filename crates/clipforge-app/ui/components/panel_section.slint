@@ -1,10 +1,13 @@
 import { Theme } from "../theme.slint";
 
-// Shared shell for the 5 sidebar panels: header (icon + title) plus a body
-// that lays out whatever the concrete panel declares as children.
+// Shared shell for the 5 sidebar panels: a clickable header (disclosure
+// glyph + icon + title) that toggles a body containing whatever the
+// concrete panel declares as children. Each panel collapses independently
+// (DESIGN.md section 9) — there's no accordion/exclusivity between them.
 export component PanelSection inherits Rectangle {
     in property <string> title: "";
     in property <string> icon-text: "";
+    in-out property <bool> expanded: true;
 
     background: Theme.surface;
     border-radius: Theme.radius-panel;
@@ -13,14 +16,22 @@ export component PanelSection inherits Rectangle {
 
     VerticalLayout {
         padding: Theme.space-4;
-        spacing: Theme.space-3;
+        spacing: root.expanded ? Theme.space-3 : 0px;
 
-        HorizontalLayout {
+        header := HorizontalLayout {
             spacing: Theme.space-2;
+
+            Text {
+                text: root.expanded ? "▾" : "▸";
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+                vertical-alignment: center;
+            }
 
             Text {
                 text: root.icon-text;
                 color: Theme.text-secondary;
+                vertical-alignment: center;
             }
 
             Text {
@@ -28,9 +39,23 @@ export component PanelSection inherits Rectangle {
                 font-size: Theme.text-md;
                 font-weight: 600;
                 color: Theme.text-primary;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.expanded = !root.expanded; }
             }
         }
 
-        @children
+        body-clip := Rectangle {
+            clip: true;
+            height: root.expanded ? body.preferred-height : 0px;
+
+            body := VerticalLayout {
+                width: 100%;
+                spacing: Theme.space-3;
+                @children
+            }
+        }
     }
 }

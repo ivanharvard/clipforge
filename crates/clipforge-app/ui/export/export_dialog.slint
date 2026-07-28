@@ -27,6 +27,7 @@ export component ExportDialog inherits Rectangle {
             LineEdit {
                 text: ExportDialogState.destination-path;
                 placeholder-text: "Destination path";
+                edited(t) => { ExportDialogState.destination-path = t; }
             }
 
             Button {

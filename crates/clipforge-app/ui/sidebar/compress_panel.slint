@@ -17,6 +17,10 @@ export component CompressPanel inherits PanelSection {
     }
 
     SpinBox {
+        // Bounds depend on the selected mode: CRF (0-51), Bitrate in kbps,
+        // or target file size in MB.
+        minimum: 0;
+        maximum: CompressState.mode-index == 0 ? 51 : (CompressState.mode-index == 1 ? 100000 : 10000);
         value: CompressState.mode-value;
         edited(v) => {
             CompressState.mode-value = v;

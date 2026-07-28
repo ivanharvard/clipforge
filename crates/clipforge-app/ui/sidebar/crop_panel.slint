@@ -2,56 +2,100 @@ import { Theme } from "../theme.slint";
 import { CropState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
 import { IconButton } from "../components/icon_button.slint";
+import { GroupLabel } from "../components/group_label.slint";
 import { SpinBox } from "std-widgets.slint";
+
+// A single "label beside field" row — exactly one wide control per row so
+// a narrow sidebar can never force two side-by-side controls to overflow
+// past the panel edge.
+component CropField inherits HorizontalLayout {
+    in property <string> label;
+    in property <int> value;
+    callback edited(int);
+
+    spacing: Theme.space-2;
+
+    Text {
+        text: root.label;
+        color: Theme.text-secondary;
+        font-size: Theme.text-sm;
+        vertical-alignment: center;
+        width: 16px;
+    }
+
+    SpinBox {
+        horizontal-stretch: 1;
+        minimum: 0;
+        maximum: 10000;
+        value: root.value;
+        edited(v) => { root.edited(v); }
+    }
+}
 
 export component CropPanel inherits PanelSection {
     title: "Crop";
     icon-text: "▢";
 
-    GridLayout {
-        spacing: Theme.space-2;
+    VerticalLayout {
+        spacing: Theme.space-1;
 
-        Row {
-            Text { text: "X"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
-            SpinBox {
-                value: CropState.x;
-                edited(v) => {
-                    CropState.x = v;
-                    CropState.changed();
-                }
-            }
-            Text { text: "Y"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
-            SpinBox {
-                value: CropState.y;
-                edited(v) => {
-                    CropState.y = v;
-                    CropState.changed();
-                }
+        GroupLabel { text: "Position"; }
+
+        CropField {
+            label: "X";
+            value: CropState.x;
+            edited(v) => {
+                CropState.snapshot-requested();
+                CropState.x = v;
+                CropState.changed();
             }
         }
 
-        Row {
-            Text { text: "W"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
-            SpinBox {
-                value: CropState.width;
-                edited(v) => {
-                    CropState.width = v;
-                    CropState.changed();
-                }
+        CropField {
+            label: "Y";
+            value: CropState.y;
+            edited(v) => {
+                CropState.snapshot-requested();
+                CropState.y = v;
+                CropState.changed();
             }
-            Text { text: "H"; color: Theme.text-secondary; font-size: Theme.text-sm; vertical-alignment: center; }
-            SpinBox {
-                value: CropState.height;
-                edited(v) => {
-                    CropState.height = v;
-                    CropState.changed();
-                }
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-1;
+
+        GroupLabel { text: "Size"; }
+
+        CropField {
+            label: "W";
+            value: CropState.width;
+            edited(v) => {
+                CropState.snapshot-requested();
+                CropState.width = v;
+                CropState.changed();
+            }
+        }
+
+        CropField {
+            label: "H";
+            value: CropState.height;
+            edited(v) => {
+                CropState.snapshot-requested();
+                CropState.height = v;
+                CropState.changed();
             }
         }
     }
 
     HorizontalLayout {
         spacing: Theme.space-2;
+
+        IconButton {
+            icon-text: "⛶";
+            active: CropState.tool-active;
+            clicked => { CropState.tool-active = !CropState.tool-active; }
+        }
 
         IconButton {
             icon-text: "🔗";

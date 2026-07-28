@@ -19,7 +19,7 @@
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="ClipForge">
         <Component Id="MainExecutable" Guid="*">
-          <File Id="ClipForgeExe" Source="..\..\target\release\clipforge-app.exe" KeyPath="yes" />
+          <File Id="ClipForgeExe" Source="target\release\clipforge-app.exe" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>

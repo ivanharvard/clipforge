@@ -52,7 +52,7 @@ package-pacman: ## Build a pacman package (see scripts/build-pacman.sh)
 	./scripts/build-pacman.sh
 
 package-msi: ## Build a Windows MSI (see scripts/build-msi.ps1, run on Windows)
-	pwsh ./scripts/build-msi.ps1
+	./scripts/build-msi.ps1
 
 install: ## Build a release binary and install it for the current user (Linux)
 	cargo build --release --bin clipforge-app

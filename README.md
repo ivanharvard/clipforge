@@ -38,3 +38,7 @@ Run `make help` for the full list of targets, including packaging
 (`package-appimage`, `package-pacman`, `package-msi`) and a user-level
 `install`/`uninstall` for Linux. Requires `ffmpeg`/`ffprobe` on `PATH` and a
 system libmpv installation.
+
+### On Windows
+
+See COMPILING.md.

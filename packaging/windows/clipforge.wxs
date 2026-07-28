@@ -10,6 +10,11 @@
     Version="0.1.0.0"
     UpgradeCode="6f2f7f1e-6d0d-4e6a-9d3a-9f0a2b6e6a01">
 
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of ClipForge is already installed."
+      Schedule="afterInstallInitialize" />
+
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="ClipForge.ico" SourceFile="packaging\windows\icon.ico" />
 
@@ -36,6 +41,15 @@
         <Component Id="LibMpvRuntime" Guid="*">
           <File Id="LibMpvDll" Source="target\release\libmpv-2.dll" KeyPath="yes" />
         </Component>
+        <Component Id="FfmpegRuntime" Guid="*">
+          <File Id="FfmpegExe" Source="target\release\ffmpeg.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="FfprobeRuntime" Guid="*">
+          <File Id="FfprobeExe" Source="target\release\ffprobe.exe" KeyPath="yes" />
+        </Component>
+        <Component Id="FfmpegLicense" Guid="*">
+          <File Id="FfmpegLicenseFile" Source="target\release\FFmpeg-LICENSE.txt" KeyPath="yes" />
+        </Component>
       </Directory>
     </StandardDirectory>
 
@@ -46,6 +60,9 @@
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <ComponentRef Id="MainExecutable" />
       <ComponentRef Id="LibMpvRuntime" />
+      <ComponentRef Id="FfmpegRuntime" />
+      <ComponentRef Id="FfprobeRuntime" />
+      <ComponentRef Id="FfmpegLicense" />
     </ComponentGroup>
   </Package>
 </Wix>

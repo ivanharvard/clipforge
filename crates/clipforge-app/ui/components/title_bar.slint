@@ -20,6 +20,12 @@ export component TitleBar inherits Rectangle {
         padding-right: Theme.space-2;
         spacing: Theme.space-3;
 
+        Image {
+            source: @image-url("../../icons/src/app-icon.svg");
+            width: 18px;
+            height: 18px;
+        }
+
         Text {
             text: "Open Clip";
             color: Theme.text-primary;

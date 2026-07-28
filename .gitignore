@@ -3,3 +3,6 @@
 **/*.rs.bk
 *.pdb
 .DS_Store
+packaging/linux/pacman/pkg/
+packaging/linux/pacman/src/
+*.pkg.tar.zst

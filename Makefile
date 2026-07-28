@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup build run test check fmt fmt-check clippy clean \
-	package-appimage package-pacman package-msi install uninstall
+	icons package-appimage package-pacman package-msi install uninstall
 
 help: ## Show this help
 	@echo "ClipForge — common development tasks"
@@ -15,6 +15,8 @@ setup: ## Check that required tools are installed (does not install anything)
 	pkg-config --exists mpv 2>/dev/null || { echo "missing: libmpv development headers — install via your package manager (e.g. pacman -S mpv, apt install libmpv-dev)"; ok=0; }; \
 	rustup component list --installed 2>/dev/null | grep -q rustfmt || { echo "missing: rustfmt — install via rustup component add rustfmt"; ok=0; }; \
 	rustup component list --installed 2>/dev/null | grep -q clippy || { echo "missing: clippy — install via rustup component add clippy"; ok=0; }; \
+	command -v rsvg-convert >/dev/null 2>&1 || echo "optional (for 'make icons'): rsvg-convert — install via your package manager"; \
+	{ command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; } || echo "optional (for 'make icons'): ImageMagick — install via your package manager"; \
 	if [ "$$ok" = "1" ]; then echo "All required tools found."; else echo; echo "Install the missing tools above, then re-run 'make setup'."; exit 1; fi
 
 build: ## Build the whole workspace (debug)
@@ -39,6 +41,9 @@ check: fmt-check clippy test ## Run the same checks as CI (fmt, clippy, test)
 
 clean: ## Remove build artifacts
 	cargo clean
+
+icons: ## Regenerate all icon sizes from crates/clipforge-app/icons/src/app-icon.svg
+	./scripts/export-icons.sh
 
 package-appimage: ## Build a Linux AppImage (see scripts/build-appimage.sh)
 	./scripts/build-appimage.sh

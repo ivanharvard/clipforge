@@ -1,5 +1,6 @@
 /target
 /dist
+/crates/clipforge-web-bindings/pkg/
 **/*.rs.bk
 *.pdb
 .DS_Store

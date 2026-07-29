@@ -1,14 +1,14 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// Metadata describing a probed media file, derived from `ffprobe` output.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct MediaInfo {
     pub duration_ms: u64,
     pub video: Option<VideoStreamInfo>,
     pub audio: Vec<AudioStreamInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct VideoStreamInfo {
     pub width: u32,
     pub height: u32,
@@ -16,7 +16,7 @@ pub struct VideoStreamInfo {
     pub codec: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AudioStreamInfo {
     pub index: usize,
     pub codec: String,

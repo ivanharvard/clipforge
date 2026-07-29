@@ -20,6 +20,8 @@ consistent custom UI on both platforms.
   here.
 - `crates/clipforge-app` — the Slint UI and the Rust glue that wires it to
   the two crates above.
+- `crates/clipforge-web-bindings` — browser-safe Wasm bindings for projects,
+  editing operations, normalized probe metadata, and ffmpeg.wasm arguments.
 
 See [DESIGN.md](DESIGN.md) for the visual design system and
 [AGENT.md](AGENT.md) for repository conventions (file size limits, folder
@@ -32,6 +34,7 @@ make setup   # checks for cargo, ffmpeg, ffprobe, libmpv, rustfmt, clippy
 make build   # cargo build --workspace
 make run     # cargo run -p clipforge-app (add CLIP=/path/to/file.mp4 to open a clip)
 make check   # fmt-check + clippy + test, same as CI
+make web-bindings # build the browser package (requires wasm-pack)
 ```
 
 Run `make help` for the full list of targets, including packaging

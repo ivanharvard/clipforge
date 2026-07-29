@@ -875,6 +875,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clipforge-web-bindings"
+version = "0.1.0"
+dependencies = [
+ "clipforge-core",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "clru"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

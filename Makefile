@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup build run test check fmt fmt-check clippy clean \
+.PHONY: help setup build run test check fmt fmt-check clippy clean web-bindings \
 	icons package-appimage package-pacman package-msi install uninstall
 
 help: ## Show this help
@@ -38,6 +38,9 @@ clippy: ## Lint the whole workspace, warnings are errors
 	cargo clippy --workspace --all-targets -- -D warnings
 
 check: fmt-check clippy test ## Run the same checks as CI (fmt, clippy, test)
+
+web-bindings: ## Build the browser Wasm package (requires wasm-pack)
+	wasm-pack build crates/clipforge-web-bindings --release --target web
 
 clean: ## Remove build artifacts
 	cargo clean

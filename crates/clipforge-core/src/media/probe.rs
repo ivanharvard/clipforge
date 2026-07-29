@@ -1,11 +1,14 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 use crate::error::{CoreError, CoreResult};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::process::tool_command;
 
 use super::types::{AudioStreamInfo, FfprobeOutput, MediaInfo, VideoStreamInfo};
 
 /// Runs `ffprobe` on `path` and parses the result into a [`MediaInfo`].
+#[cfg(not(target_arch = "wasm32"))]
 pub fn probe(path: &Path) -> CoreResult<MediaInfo> {
     let output = tool_command("ffprobe")
         .args([
@@ -30,7 +33,11 @@ pub fn probe(path: &Path) -> CoreResult<MediaInfo> {
     parse_ffprobe_json(&output.stdout)
 }
 
-pub(crate) fn parse_ffprobe_json(raw: &[u8]) -> CoreResult<MediaInfo> {
+/// Parses the JSON emitted by `ffprobe -show_format -show_streams`.
+///
+/// This is available on every target so browser integrations can execute a
+/// Wasm ffprobe implementation and reuse ClipForge's metadata projection.
+pub fn parse_ffprobe_json(raw: &[u8]) -> CoreResult<MediaInfo> {
     let parsed: FfprobeOutput = serde_json::from_slice(raw).map_err(CoreError::ProbeParse)?;
 
     let duration_ms = parsed

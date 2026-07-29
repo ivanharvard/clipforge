@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup build run test check fmt fmt-check clippy clean web-bindings \
+.PHONY: help setup build run test check fmt fmt-check clippy clean web-bindings web-build web-dev \
 	icons package-appimage package-pacman package-msi install uninstall
 
 help: ## Show this help
@@ -40,7 +40,14 @@ clippy: ## Lint the whole workspace, warnings are errors
 check: fmt-check clippy test ## Run the same checks as CI (fmt, clippy, test)
 
 web-bindings: ## Build the browser Wasm package (requires wasm-pack)
-	wasm-pack build crates/clipforge-web-bindings --release --target web
+	wasm-pack build crates/clipforge-web-bindings --release --target web \
+		--out-dir ../../web/src/generated/clipforge-wasm
+
+web-build: web-bindings ## Build the static web app to dist/web
+	npm --prefix web run build
+
+web-dev: web-bindings ## Start the web app development server
+	npm --prefix web run dev
 
 clean: ## Remove build artifacts
 	cargo clean

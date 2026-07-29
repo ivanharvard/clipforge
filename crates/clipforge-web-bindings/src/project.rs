@@ -229,6 +229,8 @@ fn to_js<T>(result: Result<T, String>) -> Result<T, JsError> {
 
 #[cfg(test)]
 mod tests {
+    use clipforge_core::panels::QualityMode;
+
     use super::*;
 
     fn project() -> WebProject {
@@ -289,5 +291,6 @@ mod tests {
         assert!(validate_trim(10_000, 9_000, 1_000).is_err());
         assert!(validate_crop(1920, 1080, 1900, 0, 100, 100).is_err());
         assert!(parse_quality_mode("crf", 99.0).is_err());
+        assert_eq!(parse_quality_mode("crf", 0.0).unwrap(), QualityMode::Crf(0));
     }
 }

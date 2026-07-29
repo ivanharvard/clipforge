@@ -12,11 +12,12 @@ Install the browser target and `wasm-pack`, then build an ES module package:
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack
-wasm-pack build crates/clipforge-web-bindings --release --target web
+make web-bindings
 ```
 
 The generated JavaScript, TypeScript declarations, and Wasm binary are written
-to `crates/clipforge-web-bindings/pkg/`.
+to `web/src/generated/clipforge-wasm/`. They are build artifacts and are not
+committed.
 
 ## Browser usage
 
@@ -24,7 +25,7 @@ to `crates/clipforge-web-bindings/pkg/`.
 import init, {
   ClipForgeProject,
   parse_probe_output,
-} from "../crates/clipforge-web-bindings/pkg/clipforge_web_bindings.js";
+} from "./generated/clipforge-wasm/clipforge_web_bindings.js";
 
 await init();
 

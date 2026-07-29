@@ -1,6 +1,9 @@
 /target
 /dist
 /crates/clipforge-web-bindings/pkg/
+/web/node_modules/
+/web/src/generated/
+/web/.vite/
 **/*.rs.bk
 *.pdb
 .DS_Store

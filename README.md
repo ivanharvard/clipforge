@@ -22,6 +22,8 @@ consistent custom UI on both platforms.
   the two crates above.
 - `crates/clipforge-web-bindings` — browser-safe Wasm bindings for projects,
   editing operations, normalized probe metadata, and ffmpeg.wasm arguments.
+- `web` — the React/Vite browser editor. Processing stays on-device through
+  the shared Wasm model and ffmpeg.wasm.
 
 See [DESIGN.md](DESIGN.md) for the visual design system and
 [AGENT.md](AGENT.md) for repository conventions (file size limits, folder
@@ -34,7 +36,8 @@ make setup   # checks for cargo, ffmpeg, ffprobe, libmpv, rustfmt, clippy
 make build   # cargo build --workspace
 make run     # cargo run -p clipforge-app (add CLIP=/path/to/file.mp4 to open a clip)
 make check   # fmt-check + clippy + test, same as CI
-make web-bindings # build the browser package (requires wasm-pack)
+make web-build # build the browser app to dist/web (requires wasm-pack + npm)
+make web-dev   # build the bindings and start Vite
 ```
 
 Run `make help` for the full list of targets, including packaging

@@ -12,16 +12,20 @@ pub fn parse_resolution(value: &str) -> Result<ResolutionPreset, String> {
 }
 
 pub fn parse_quality_mode(mode: &str, value: f64) -> Result<QualityMode, String> {
-    if !value.is_finite() || value <= 0.0 {
-        return Err("compression value must be positive and finite".into());
+    if !value.is_finite() {
+        return Err("compression value must be finite".into());
     }
     match mode {
-        "crf" if value <= 51.0 && value.fract() == 0.0 => Ok(QualityMode::Crf(value as u8)),
-        "bitrate" if value <= u32::MAX as f64 && value.fract() == 0.0 => {
+        "crf" if (0.0..=51.0).contains(&value) && value.fract() == 0.0 => {
+            Ok(QualityMode::Crf(value as u8))
+        }
+        "bitrate" if value > 0.0 && value <= u32::MAX as f64 && value.fract() == 0.0 => {
             Ok(QualityMode::BitrateKbps(value as u32))
         }
-        "target-size" => Ok(QualityMode::TargetSizeMb(value)),
-        "crf" | "bitrate" => Err("compression value is outside its valid range".into()),
+        "target-size" if value > 0.0 => Ok(QualityMode::TargetSizeMb(value)),
+        "crf" | "bitrate" | "target-size" => {
+            Err("compression value is outside its valid range".into())
+        }
         _ => Err("unknown compression mode".into()),
     }
 }

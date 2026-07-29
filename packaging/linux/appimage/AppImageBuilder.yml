@@ -1,6 +1,8 @@
-# AppImageBuilder recipe skeleton. Fill in once `cargo build --release`
-# output paths and icon assets exist; see scripts/build-appimage.sh for the
-# build entry point.
+# scripts/build-appimage.sh stages the binary, desktop file, and icons into
+# ./AppDir before invoking appimage-builder with this recipe. The AppImage
+# relies on system ffmpeg/mpv (same as the pacman package's `depends`) rather
+# than bundling them, since there's no portable static build for either on
+# Linux the way scripts/fetch-ffmpeg.ps1 provides on Windows.
 version: 1
 
 AppDir:

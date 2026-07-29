@@ -6,3 +6,6 @@
 packaging/linux/pacman/pkg/
 packaging/linux/pacman/src/
 *.pkg.tar.zst
+AppDir
+appimage-build
+*.zsync

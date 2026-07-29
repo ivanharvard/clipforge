@@ -5,7 +5,7 @@ mod resolution;
 mod transform;
 
 pub use audio::AudioState;
-pub use compress::{CompressState, QualityMode};
+pub use compress::{CompressState, FrameRateLimit, QualityMode, VideoCodec};
 pub use crop::CropState;
 pub use resolution::{ResolutionPreset, ResolutionState};
 pub use transform::TransformState;

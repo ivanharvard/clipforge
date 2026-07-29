@@ -1,4 +1,4 @@
-use clipforge_core::panels::{QualityMode, ResolutionPreset};
+use clipforge_core::panels::{FrameRateLimit, QualityMode, ResolutionPreset, VideoCodec};
 use clipforge_core::Project;
 use slint::ComponentHandle;
 
@@ -21,14 +21,6 @@ fn preset_to_index(preset: ResolutionPreset) -> i32 {
         ResolutionPreset::Hd720p => 2,
         ResolutionPreset::Sd480p => 3,
         ResolutionPreset::Custom => 4,
-    }
-}
-
-fn mode_to_index_and_value(mode: QualityMode) -> (i32, i32) {
-    match mode {
-        QualityMode::Crf(v) => (0, v as i32),
-        QualityMode::BitrateKbps(v) => (1, v as i32),
-        QualityMode::TargetSizeMb(v) => (2, v.round() as i32),
     }
 }
 
@@ -65,10 +57,33 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     audio.set_track_index(project.audio.track_index.unwrap_or(0) as i32);
     audio.set_normalize(project.audio.normalize);
 
-    let (mode_index, mode_value) = mode_to_index_and_value(project.compress.mode);
     let compress = app.global::<CompressState>();
-    compress.set_mode_index(mode_index);
-    compress.set_mode_value(mode_value);
+    let target_size = match project.compress.mode {
+        QualityMode::TargetSizeMb(value) => value.round() as i32,
+        _ => 10,
+    };
+    compress.set_target_size_mb(target_size.max(1));
+    compress.set_frame_rate_index(match project.compress.frame_rate_limit {
+        FrameRateLimit::Automatic => 0,
+        FrameRateLimit::Fps30 => 1,
+        FrameRateLimit::Fps60 => 2,
+    });
+    compress.set_codec_index(match project.compress.codec {
+        VideoCodec::H264 => 0,
+        VideoCodec::Av1 => 1,
+    });
+    compress.set_extra_quality(project.compress.extra_quality);
+    compress.set_tolerance_percent(i32::from(project.compress.tolerance_percent));
+    let target = project.compress.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+    let limit = project
+        .compress
+        .target_size_limit_bytes()
+        .unwrap_or_default() as f64
+        / 1024.0
+        / 1024.0;
+    compress.set_estimated_size_text(
+        format!("Target after trim: {target:.0} MiB (up to {limit:.1} MiB)").into(),
+    );
 
     let playback = app.global::<PlaybackState>();
     let duration = project.clip_bounds.duration();

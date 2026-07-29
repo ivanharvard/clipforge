@@ -80,14 +80,17 @@ export global AudioState {
 }
 
 export global CompressState {
-    in property <[string]> modes: ["Quality", "Video bitrate", "Target file size"];
-    in-out property <int> mode-index: 2;
-    in-out property <int> mode-value: 8;
+    in-out property <int> target-size-mb: 10;
+    in property <[string]> frame-rate-options: ["Automatic", "30 FPS", "60 FPS"];
+    in-out property <int> frame-rate-index: 0;
+    in property <[string]> codec-options: ["H.264", "AV1"];
+    in-out property <int> codec-index: 0;
+    in-out property <bool> extra-quality: false;
+    in-out property <int> tolerance-percent: 10;
     in-out property <string> estimated-size-text: "estimate unavailable";
     in-out property <bool> apply-to-all: true;
 
-    callback mode-selected(int);
-    callback mode-value-changed(int);
+    callback settings-changed();
     callback apply-to-all-changed(bool);
 }
 
@@ -104,19 +107,6 @@ export global QueueState {
     callback remove-clicked();
     callback previous-clicked();
     callback next-clicked();
-}
-
-export struct PipelineStageView {
-    label: string,
-    enabled: bool,
-}
-
-export global PipelineState {
-    in-out property <[PipelineStageView]> stages: [];
-
-    callback enabled-changed(int, bool);
-    callback move-up-clicked(int);
-    callback move-down-clicked(int);
 }
 
 export enum ExportPhase {

@@ -5,7 +5,7 @@ use clipforge_core::Project;
 use clipforge_player::{PlayerContext, SwRenderContext};
 
 use crate::recovery::{self, RecoverySnapshot};
-use crate::settings::{AppSettings, PipelineStage, PipelineStep};
+use crate::settings::AppSettings;
 
 /// Undo history depth cap — `Project` snapshots are small (a handful of
 /// `Copy`-ish sub-structs), so this is generous headroom rather than a
@@ -30,7 +30,7 @@ impl QueueItem {
 
 /// Everything that lives for the duration of the app outside of the Slint
 /// UI tree itself: queued projects, the active project and its history, saved
-/// workflow settings, the mpv preview contexts, and any running export.
+/// app settings, the mpv preview contexts, and any running export.
 ///
 /// Deliberately data-only — `main.rs` and `bindings/*` own the logic that
 /// reads and mutates this.
@@ -70,6 +70,15 @@ impl AppState {
                 })
                 .map(QueueItem::new)
                 .collect();
+            let default_compression = state.settings.compression();
+            for item in &mut state.queue {
+                if !matches!(
+                    item.project.compress.mode,
+                    clipforge_core::panels::QualityMode::TargetSizeMb(_)
+                ) {
+                    item.project.compress = default_compression;
+                }
+            }
             if !state.queue.is_empty() {
                 let index = snapshot.active_index.min(state.queue.len() - 1);
                 if state.activate_queue_item(index).is_err() {
@@ -84,15 +93,16 @@ impl AppState {
 
     pub fn enqueue_clip(&mut self, path: PathBuf) -> anyhow::Result<usize> {
         let info = clipforge_core::media::probe(&path)?;
-        let (width, height) = info
+        let (width, height, frame_rate) = info
             .video
             .as_ref()
-            .map(|v| (v.width, v.height))
-            .unwrap_or((0, 0));
+            .map(|video| (video.width, video.height, video.frame_rate))
+            .unwrap_or((0, 0, 0.0));
         let bounds = ClipBounds::full_range(Timestamp::from_ms(info.duration_ms));
 
         let mut project = Project::new(path, width, height, bounds);
-        project.compress.mode = self.settings.compression();
+        project.source_frame_rate = frame_rate;
+        project.compress = self.settings.compression();
         self.queue.push(QueueItem::new(project));
         self.save_recovery_snapshot();
         Ok(self.queue.len() - 1)
@@ -188,15 +198,15 @@ impl AppState {
             .map(PathBuf::from)
     }
 
-    pub fn update_compression(&mut self, mode: clipforge_core::panels::QualityMode) {
-        self.settings.set_compression(mode);
+    pub fn update_compression(&mut self, compression: clipforge_core::panels::CompressState) {
+        self.settings.set_compression(compression);
         if self.settings.compression_apply_all {
             for item in &mut self.queue {
-                item.project.compress.mode = mode;
+                item.project.compress = compression;
             }
         }
         if let Some(project) = &mut self.project {
-            project.compress.mode = mode;
+            project.compress = compression;
         }
         self.save_settings();
     }
@@ -204,46 +214,17 @@ impl AppState {
     pub fn set_compression_apply_all(&mut self, enabled: bool) {
         self.settings.compression_apply_all = enabled;
         if enabled {
-            let mode = self
+            let compression = self
                 .project
                 .as_ref()
-                .map(|project| project.compress.mode)
+                .map(|project| project.compress)
                 .unwrap_or_else(|| self.settings.compression());
             for item in &mut self.queue {
-                item.project.compress.mode = mode;
+                item.project.compress = compression;
             }
-            self.settings.set_compression(mode);
+            self.settings.set_compression(compression);
         }
         self.save_settings();
-    }
-
-    pub fn pipeline(&self) -> &[PipelineStage] {
-        &self.settings.pipeline
-    }
-
-    pub fn set_pipeline_enabled(&mut self, index: usize, enabled: bool) {
-        if let Some(stage) = self.settings.pipeline.get_mut(index) {
-            stage.enabled = enabled;
-            self.save_settings();
-        }
-    }
-
-    pub fn move_pipeline_stage(&mut self, index: usize, offset: isize) {
-        let target = index as isize + offset;
-        if target < 0 || target >= self.settings.pipeline.len() as isize {
-            return;
-        }
-        self.settings.pipeline.swap(index, target as usize);
-        self.save_settings();
-    }
-
-    pub fn pipeline_enabled(&self, step: PipelineStep) -> bool {
-        self.settings
-            .pipeline
-            .iter()
-            .find(|stage| stage.step == step)
-            .map(|stage| stage.enabled)
-            .unwrap_or(true)
     }
 
     fn stash_active_item(&mut self) {

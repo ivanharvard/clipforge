@@ -1,6 +1,8 @@
+// Primary compression controls for target size, frame rate, and codec.
 import { Theme } from "../theme.slint";
 import { CompressState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
+import { GroupLabel } from "../components/group_label.slint";
 import { ComboBox, SpinBox, CheckBox } from "std-widgets.slint";
 
 export component CompressPanel inherits PanelSection {
@@ -8,38 +10,30 @@ export component CompressPanel inherits PanelSection {
     icon: @image-url("../../icons/ui/archive-restore.svg");
 
     Text {
-        text: "Choose the output goal. Target file size is usually the easiest option.";
+        text: "Trim first, then encode to a predictable output size.";
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
         wrap: word-wrap;
     }
 
-    ComboBox {
-        model: CompressState.modes;
-        current-index: CompressState.mode-index;
-        selected(_) => {
-            CompressState.mode-index = self.current-index;
-            CompressState.mode-selected(self.current-index);
-        }
-    }
+    GroupLabel { text: "TARGET SIZE"; }
 
     HorizontalLayout {
         spacing: Theme.space-2;
 
         SpinBox {
             horizontal-stretch: 1;
-            minimum: CompressState.mode-index == 0 ? 0 : 1;
-            maximum: CompressState.mode-index == 0 ? 51 : (CompressState.mode-index == 1 ? 100000 : 10000);
-            value: CompressState.mode-value;
-            edited(v) => {
-                CompressState.mode-value = v;
-                CompressState.mode-value-changed(v);
+            minimum: 1;
+            maximum: 10000;
+            value: CompressState.target-size-mb;
+            edited(value) => {
+                CompressState.target-size-mb = value;
+                CompressState.settings-changed();
             }
         }
 
         Text {
-            text: CompressState.mode-index == 0 ? "CRF" : (CompressState.mode-index == 1 ? "kbps" : "MB");
-            width: 40px;
+            text: "MiB";
             color: Theme.text-secondary;
             font-size: Theme.text-xs;
             vertical-alignment: center;
@@ -47,24 +41,83 @@ export component CompressPanel inherits PanelSection {
     }
 
     Text {
-        text: CompressState.mode-index == 0
-            ? "Lower CRF means higher quality and a larger file."
-            : (CompressState.mode-index == 1
-                ? "Sets a fixed video data rate."
-                : "ClipForge calculates the bitrate needed for this size.");
+        text: CompressState.estimated-size-text;
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
         wrap: word-wrap;
     }
 
+    GroupLabel { text: "FRAME RATE LIMIT"; }
+
+    ComboBox {
+        model: CompressState.frame-rate-options;
+        current-index: CompressState.frame-rate-index;
+        selected(_) => {
+            CompressState.frame-rate-index = self.current-index;
+            CompressState.settings-changed();
+        }
+    }
+
     Text {
-        text: CompressState.estimated-size-text;
+        text: "Automatic preserves the source frame rate.";
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
+        wrap: word-wrap;
+    }
+
+    GroupLabel { text: "ENCODING OPTIONS"; }
+
+    ComboBox {
+        model: CompressState.codec-options;
+        current-index: CompressState.codec-index;
+        selected(_) => {
+            CompressState.codec-index = self.current-index;
+            CompressState.settings-changed();
+        }
     }
 
     CheckBox {
-        text: "Apply compression to all queued videos";
+        text: "Extra quality (slower)";
+        checked: CompressState.extra-quality;
+        toggled => {
+            CompressState.extra-quality = self.checked;
+            CompressState.settings-changed();
+        }
+    }
+
+    GroupLabel { text: "TOLERANCE"; }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        SpinBox {
+            horizontal-stretch: 1;
+            minimum: 0;
+            maximum: 100;
+            value: CompressState.tolerance-percent;
+            edited(value) => {
+                CompressState.tolerance-percent = value;
+                CompressState.settings-changed();
+            }
+        }
+
+        Text {
+            text: "%";
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    Text {
+        text: "Allows the final file to exceed the target by this amount.";
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
+    }
+
+    CheckBox {
+        text: "Apply to all queued videos";
         checked: CompressState.apply-to-all;
         toggled => {
             CompressState.apply-to-all = self.checked;

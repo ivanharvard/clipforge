@@ -1,104 +1,75 @@
 use std::path::Path;
 
-use crate::panels::QualityMode;
+use crate::panels::{QualityMode, VideoCodec};
 use crate::project::Project;
-
-/// Selects which optional editing stages contribute ffmpeg arguments.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExportOptions {
-    /// Applies crop, resolution, rotation, and flip edits.
-    pub transform: bool,
-    /// Applies the selected in/out points.
-    pub trim: bool,
-    /// Applies the selected size, bitrate, or quality target.
-    pub compress: bool,
-}
-
-impl Default for ExportOptions {
-    fn default() -> Self {
-        Self {
-            transform: true,
-            trim: true,
-            compress: true,
-        }
-    }
-}
 
 /// Builds the `ffmpeg` argument list for exporting `project` to `output`.
 /// Pure function: no process spawning, so it's fully unit-testable.
 pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
-    build_export_args_with_options(project, output, ExportOptions::default())
-}
-
-/// Builds ffmpeg arguments while honoring enabled pipeline stages.
-pub fn build_export_args_with_options(
-    project: &Project,
-    output: &Path,
-    options: ExportOptions,
-) -> Vec<String> {
     let mut args = vec![
         "-hide_banner".to_string(),
         "-nostats".to_string(),
         "-y".to_string(),
+        "-ss".to_string(),
+        project.clip_bounds.in_point().as_secs_f64().to_string(),
         "-i".to_string(),
         project.source_path_string(),
+        "-t".to_string(),
+        project
+            .clip_bounds
+            .selected_duration()
+            .as_secs_f64()
+            .to_string(),
     ];
-
-    if options.trim {
-        args.push("-ss".to_string());
-        args.push(project.clip_bounds.in_point().as_secs_f64().to_string());
-        args.push("-to".to_string());
-        args.push(project.clip_bounds.out_point().as_secs_f64().to_string());
-    }
 
     let mut filters = Vec::new();
 
-    if options.transform {
-        let crop = &project.crop;
-        let crop_applied = crop.width != project.source_width
-            || crop.height != project.source_height
-            || crop.x != 0
-            || crop.y != 0;
-        if crop_applied {
-            filters.push(format!(
-                "crop={}:{}:{}:{}",
-                crop.width, crop.height, crop.x, crop.y
-            ));
-        }
+    let crop = &project.crop;
+    let crop_applied = crop.width != project.source_width
+        || crop.height != project.source_height
+        || crop.x != 0
+        || crop.y != 0;
+    if crop_applied {
+        filters.push(format!(
+            "crop={}:{}:{}:{}",
+            crop.width, crop.height, crop.x, crop.y
+        ));
+    }
 
-        let input_width = if crop_applied {
-            crop.width
-        } else {
-            project.source_width
-        };
-        let input_height = if crop_applied {
-            crop.height
-        } else {
-            project.source_height
-        };
-        let (resolved_width, resolved_height) =
-            project.resolution.resolve(input_width, input_height);
-        let out_width = even_dimension(resolved_width);
-        let out_height = even_dimension(resolved_height);
-        if (out_width, out_height) != (input_width, input_height) {
-            filters.push(format!("scale={out_width}:{out_height}"));
-        }
+    let input_width = if crop_applied {
+        crop.width
+    } else {
+        project.source_width
+    };
+    let input_height = if crop_applied {
+        crop.height
+    } else {
+        project.source_height
+    };
+    let (resolved_width, resolved_height) = project.resolution.resolve(input_width, input_height);
+    let out_width = even_dimension(resolved_width);
+    let out_height = even_dimension(resolved_height);
+    if (out_width, out_height) != (input_width, input_height) {
+        filters.push(format!("scale={out_width}:{out_height}"));
+    }
 
-        let rotation = project.transform.rotation();
-        match rotation {
-            90 => filters.push("transpose=1".to_string()),
-            180 => filters.push("transpose=2,transpose=2".to_string()),
-            270 => filters.push("transpose=2".to_string()),
-            _ => {}
+    let rotation = project.transform.rotation();
+    match rotation {
+        90 => filters.push("transpose=1".to_string()),
+        180 => filters.push("transpose=2,transpose=2".to_string()),
+        270 => filters.push("transpose=2".to_string()),
+        _ => {}
+    }
+    if project.transform.flip_horizontal {
+        filters.push("hflip".to_string());
+    }
+    if project.transform.flip_vertical {
+        filters.push("vflip".to_string());
+    }
+    if let Some(limit) = project.compress.frame_rate_limit.fps() {
+        if project.source_frame_rate == 0.0 || project.source_frame_rate > f64::from(limit) {
+            filters.push(format!("fps={limit}"));
         }
-        if project.transform.flip_horizontal {
-            filters.push("hflip".to_string());
-        }
-        if project.transform.flip_vertical {
-            filters.push("vflip".to_string());
-        }
-    } else if !project.source_width.is_multiple_of(2) || !project.source_height.is_multiple_of(2) {
-        filters.push("scale=trunc(iw/2)*2:trunc(ih/2)*2".to_string());
     }
 
     if !filters.is_empty() {
@@ -106,37 +77,54 @@ pub fn build_export_args_with_options(
         args.push(filters.join(","));
     }
 
-    if options.compress {
-        let requested_kbps = match project.compress.mode {
-            QualityMode::Crf(crf) => Some(quality_bitrate_kbps(project, crf)),
-            QualityMode::BitrateKbps(_) | QualityMode::TargetSizeMb(_) => {
-                let duration = if options.trim {
-                    project.clip_bounds.selected_duration()
-                } else {
-                    project.clip_bounds.duration()
-                };
-                project.compress.target_bitrate_kbps(duration.as_secs_f64())
-            }
-        };
-        if let Some(requested_kbps) = requested_kbps {
-            let audio_kbps = if project.audio.muted { 0 } else { 128 };
-            let max_kbps = quality_bitrate_kbps(project, 8);
-            let video_kbps = requested_kbps
-                .saturating_sub(audio_kbps)
-                .clamp(64, max_kbps);
+    let requested_kbps = match project.compress.mode {
+        QualityMode::Crf(crf) => Some(quality_bitrate_kbps(project, crf)),
+        QualityMode::BitrateKbps(_) | QualityMode::TargetSizeMb(_) => project
+            .compress
+            .target_bitrate_kbps(project.clip_bounds.selected_duration().as_secs_f64()),
+    };
+    if let Some(requested_kbps) = requested_kbps {
+        let audio_kbps = if project.audio.muted { 0 } else { 128 };
+        let max_kbps = quality_bitrate_kbps(project, 8);
+        let video_kbps = requested_kbps
+            .saturating_sub(audio_kbps)
+            .clamp(64, max_kbps);
+        args.extend(["-b:v".to_string(), format!("{video_kbps}k")]);
+    }
+
+    args.push("-c:v".to_string());
+    match project.compress.codec {
+        VideoCodec::H264 => {
+            args.push("libopenh264".to_string());
             args.extend([
-                "-b:v".to_string(),
-                format!("{video_kbps}k"),
                 "-rc_mode".to_string(),
                 "bitrate".to_string(),
                 "-allow_skip_frames".to_string(),
                 "1".to_string(),
+                "-profile:v".to_string(),
+                if project.compress.extra_quality {
+                    "high".to_string()
+                } else {
+                    "main".to_string()
+                },
+                "-coder".to_string(),
+                "cabac".to_string(),
+            ]);
+        }
+        VideoCodec::Av1 => {
+            args.push("libaom-av1".to_string());
+            args.extend([
+                "-cpu-used".to_string(),
+                if project.compress.extra_quality {
+                    "4".to_string()
+                } else {
+                    "8".to_string()
+                },
+                "-row-mt".to_string(),
+                "1".to_string(),
             ]);
         }
     }
-
-    args.push("-c:v".to_string());
-    args.push("libopenh264".to_string());
     args.push("-pix_fmt".to_string());
     args.push("yuv420p".to_string());
 
@@ -145,6 +133,8 @@ pub fn build_export_args_with_options(
     } else {
         args.push("-c:a".to_string());
         args.push("aac".to_string());
+        args.push("-b:a".to_string());
+        args.push("128k".to_string());
         args.push("-af".to_string());
         args.push(format!("volume={}", project.audio.effective_volume()));
         if let Some(track) = project.audio.track_index {
@@ -221,6 +211,37 @@ mod tests {
     }
 
     #[test]
+    fn trims_with_input_seek_and_selected_duration() {
+        let mut project = sample_project();
+        project.clip_bounds.set_in_point(Timestamp::from_ms(2_000));
+        project.clip_bounds.set_out_point(Timestamp::from_ms(7_000));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let seek_index = args.iter().position(|argument| argument == "-ss").unwrap();
+        let input_index = args.iter().position(|argument| argument == "-i").unwrap();
+        assert!(seek_index < input_index);
+        assert!(args.windows(2).any(|pair| pair == ["-t", "5"]));
+    }
+
+    #[test]
+    fn frame_rate_limit_adds_fps_filter() {
+        let mut project = sample_project();
+        project.source_frame_rate = 60.0;
+        project.compress.frame_rate_limit = crate::panels::FrameRateLimit::Fps30;
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        assert!(args.windows(2).any(|pair| pair == ["-vf", "fps=30"]));
+    }
+
+    #[test]
+    fn av1_mode_selects_libaom_encoder() {
+        let mut project = sample_project();
+        project.compress.codec = VideoCodec::Av1;
+        project.compress.extra_quality = true;
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "libaom-av1"]));
+        assert!(args.windows(2).any(|pair| pair == ["-cpu-used", "4"]));
+    }
+
+    #[test]
     fn quality_mode_sets_openh264_bitrate_control() {
         let mut project = sample_project();
         project.compress.mode = QualityMode::Crf(23);
@@ -237,25 +258,6 @@ mod tests {
         let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
         assert!(args.contains(&"-an".to_string()));
         assert!(!args.contains(&"-af".to_string()));
-    }
-
-    #[test]
-    fn disabled_pipeline_stages_omit_their_arguments() {
-        let mut project = sample_project();
-        project.transform.flip_horizontal = true;
-        let args = build_export_args_with_options(
-            &project,
-            Path::new("/tmp/output.mp4"),
-            ExportOptions {
-                transform: false,
-                trim: false,
-                compress: false,
-            },
-        );
-        assert!(!args.contains(&"-ss".to_string()));
-        assert!(!args.contains(&"-vf".to_string()));
-        assert!(!args.contains(&"-crf".to_string()));
-        assert!(!args.contains(&"-b:v".to_string()));
     }
 
     #[test]

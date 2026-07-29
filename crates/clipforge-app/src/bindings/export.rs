@@ -2,22 +2,24 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
-use clipforge_core::export::{spawn_export, ExportHandle, ExportJob, ExportOptions};
+use clipforge_core::export::{spawn_export, ExportHandle, ExportJob};
 use clipforge_core::Project;
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
-use crate::settings::PipelineStep;
 use crate::{App, ExportDialogState, ExportPhase};
 
 struct ExportTask {
     job: ExportJob,
     duration_ms: u64,
     label: String,
+    target_size_limit_bytes: Option<u64>,
 }
+
+const MAX_TARGET_PASSES: usize = 12;
 
 fn unique_output_path(
     project: &Project,
@@ -47,32 +49,23 @@ fn unique_output_path(
 }
 
 fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
-    let options = ExportOptions {
-        transform: state.pipeline_enabled(PipelineStep::Transform),
-        trim: state.pipeline_enabled(PipelineStep::Trim),
-        compress: state.pipeline_enabled(PipelineStep::Compress),
-    };
     let mut reserved = HashSet::new();
     state
         .queued_projects()
         .into_iter()
         .map(|project| {
             let output_path = unique_output_path(&project, directory, &mut reserved);
-            let duration_ms = if options.trim {
-                project.clip_bounds.selected_duration().as_ms()
-            } else {
-                project.clip_bounds.duration().as_ms()
-            }
-            .max(1);
+            let duration_ms = project.clip_bounds.selected_duration().as_ms().max(1);
             let label = output_path
                 .file_name()
                 .unwrap_or(output_path.as_os_str())
                 .to_string_lossy()
                 .into_owned();
             ExportTask {
-                job: ExportJob::from_project_with_options(&project, output_path, options),
+                job: ExportJob::from_project(&project, output_path),
                 duration_ms,
                 label,
+                target_size_limit_bytes: project.compress.target_size_limit_bytes(),
             }
         })
         .collect()
@@ -140,46 +133,95 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 let mut completed_duration_ms = 0_u64;
                 let mut result = Ok(());
 
-                for (index, task) in tasks.into_iter().enumerate() {
+                'tasks: for (index, task) in tasks.into_iter().enumerate() {
                     if cancelled.load(Ordering::SeqCst) {
                         break;
                     }
-                    let message =
-                        format!("Exporting {} of {task_count}: {}", index + 1, task.label);
-                    let status_app = app_weak.clone();
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(app) = status_app.upgrade() {
-                            app.global::<ExportDialogState>()
-                                .set_result_message(message.into());
-                        }
-                    });
+                    let mut job = task.job;
+                    let mut pass = 1;
+                    let displayed_clip_progress = Arc::new(AtomicU64::new(0));
 
-                    let handle = match spawn_export(&task.job) {
-                        Ok(handle) => handle,
-                        Err(error) => {
-                            result = Err(format!("{}: {error}", task.label));
-                            break;
+                    loop {
+                        if cancelled.load(Ordering::SeqCst) {
+                            break 'tasks;
                         }
-                    };
-                    *current_handle.lock().expect("export handle lock poisoned") =
-                        Some(handle.clone());
-
-                    let progress_app = app_weak.clone();
-                    let completed_before = completed_duration_ms;
-                    let duration_ms = task.duration_ms;
-                    if let Err(error) = handle.wait_with_progress(move |progress| {
-                        let app_weak = progress_app.clone();
-                        let clip_progress = progress.out_time_ms.min(duration_ms);
-                        let fraction =
-                            (completed_before + clip_progress) as f32 / total_duration_ms as f32;
+                        let message = if pass == 1 {
+                            format!("Exporting {} of {task_count}: {}", index + 1, task.label)
+                        } else {
+                            format!(
+                                "Compressing {} of {task_count}: {} (pass {pass})",
+                                index + 1,
+                                task.label
+                            )
+                        };
+                        let status_app = app_weak.clone();
                         let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(app) = app_weak.upgrade() {
-                                app.global::<ExportDialogState>().set_progress(fraction);
+                            if let Some(app) = status_app.upgrade() {
+                                app.global::<ExportDialogState>()
+                                    .set_result_message(message.into());
                             }
                         });
-                    }) {
-                        result = Err(format!("{}: {error}", task.label));
-                        break;
+
+                        let handle = match spawn_export(&job) {
+                            Ok(handle) => handle,
+                            Err(error) => {
+                                result = Err(format!("{}: {error}", task.label));
+                                break 'tasks;
+                            }
+                        };
+                        *current_handle.lock().expect("export handle lock poisoned") =
+                            Some(handle.clone());
+
+                        let progress_app = app_weak.clone();
+                        let completed_before = completed_duration_ms;
+                        let duration_ms = task.duration_ms;
+                        let displayed_clip_progress = displayed_clip_progress.clone();
+                        if let Err(error) = handle.wait_with_progress(move |progress| {
+                            let app_weak = progress_app.clone();
+                            let clip_progress = progress.out_time_ms.min(duration_ms);
+                            let previous =
+                                displayed_clip_progress.fetch_max(clip_progress, Ordering::Relaxed);
+                            let visible_progress = previous.max(clip_progress);
+                            let fraction = (completed_before + visible_progress) as f32
+                                / total_duration_ms as f32;
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(app) = app_weak.upgrade() {
+                                    app.global::<ExportDialogState>().set_progress(fraction);
+                                }
+                            });
+                        }) {
+                            result = Err(format!("{}: {error}", task.label));
+                            break 'tasks;
+                        }
+
+                        let Some(target_bytes) = task.target_size_limit_bytes else {
+                            break;
+                        };
+                        let actual_bytes = match std::fs::metadata(&job.output_path) {
+                            Ok(metadata) => metadata.len(),
+                            Err(error) => {
+                                result =
+                                    Err(format!("{}: cannot measure export: {error}", task.label));
+                                break 'tasks;
+                            }
+                        };
+                        if actual_bytes <= target_bytes {
+                            break;
+                        }
+                        if pass >= MAX_TARGET_PASSES
+                            || job
+                                .reduce_video_bitrate_to_fit(actual_bytes, target_bytes)
+                                .is_none()
+                        {
+                            result = Err(format!(
+                                "{} is {:.2} MB; the {:.2} MB target is too small for this clip",
+                                task.label,
+                                actual_bytes as f64 / 1024.0 / 1024.0,
+                                target_bytes as f64 / 1024.0 / 1024.0
+                            ));
+                            break 'tasks;
+                        }
+                        pass += 1;
                     }
                     completed_duration_ms += task.duration_ms;
                 }

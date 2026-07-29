@@ -1,79 +1,66 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use clipforge_core::panels::QualityMode;
+use clipforge_core::panels::{
+    CompressState as CoreCompressState, FrameRateLimit, QualityMode, VideoCodec,
+};
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
 use crate::{App, CompressState};
 
-fn quality_mode_from_index(index: i32, value: i32) -> QualityMode {
-    match index {
-        1 => QualityMode::BitrateKbps(value.max(0) as u32),
-        2 => QualityMode::TargetSizeMb(value.max(0) as f64),
-        _ => QualityMode::Crf(value.clamp(0, 51) as u8),
+fn compression_from_ui(app: &App) -> CoreCompressState {
+    let ui = app.global::<CompressState>();
+    let frame_rate_limit = match ui.get_frame_rate_index() {
+        1 => FrameRateLimit::Fps30,
+        2 => FrameRateLimit::Fps60,
+        _ => FrameRateLimit::Automatic,
+    };
+    let codec = match ui.get_codec_index() {
+        1 => VideoCodec::Av1,
+        _ => VideoCodec::H264,
+    };
+    CoreCompressState {
+        mode: QualityMode::TargetSizeMb(ui.get_target_size_mb().max(1) as f64),
+        frame_rate_limit,
+        codec,
+        extra_quality: ui.get_extra_quality(),
+        tolerance_percent: ui.get_tolerance_percent().clamp(0, 100) as u8,
     }
 }
 
-fn update_estimate(app: &App, state: &Rc<RefCell<AppState>>) {
-    let app_state = state.borrow();
-    let Some(project) = &app_state.project else {
-        return;
-    };
-    let selected_secs = project.clip_bounds.selected_duration().as_secs_f64();
-    let estimate = project.compress.estimated_size_mb(selected_secs);
-    let text = if estimate > 0.0 {
-        format!("~{estimate:.1} MB")
-    } else {
-        "estimate unavailable".to_string()
-    };
-    app.global::<CompressState>()
-        .set_estimated_size_text(text.into());
+fn update_summary(app: &App) {
+    let compression = compression_from_ui(app);
+    let target = compression.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+    let limit = compression.target_size_limit_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+    app.global::<CompressState>().set_estimated_size_text(
+        format!("Target after trim: {target:.0} MiB (up to {limit:.1} MiB)").into(),
+    );
 }
 
 pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     let compress = app.global::<CompressState>();
     compress.set_apply_to_all(state.borrow().settings.compression_apply_all);
+    update_summary(app);
 
     {
         let app_weak = app.as_weak();
         let state = state.clone();
-        compress.on_mode_selected(move |index| {
+        compress.on_settings_changed(move || {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
+            let compression = compression_from_ui(&app);
             {
                 let mut app_state = state.borrow_mut();
-                app_state.push_undo_snapshot();
                 if app_state.project.is_none() {
                     return;
                 }
-                let value = app.global::<CompressState>().get_mode_value();
-                app_state.update_compression(quality_mode_from_index(index, value));
-                crate::bindings::update_undo_redo_buttons(&app, &app_state);
-            }
-            update_estimate(&app, &state);
-        });
-    }
-
-    {
-        let app_weak = app.as_weak();
-        let state = state.clone();
-        compress.on_mode_value_changed(move |value| {
-            let Some(app) = app_weak.upgrade() else {
-                return;
-            };
-            {
-                let mut app_state = state.borrow_mut();
                 app_state.push_undo_snapshot();
-                if app_state.project.is_none() {
-                    return;
-                }
-                let index = app.global::<CompressState>().get_mode_index();
-                app_state.update_compression(quality_mode_from_index(index, value));
+                app_state.update_compression(compression);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
-            update_estimate(&app, &state);
+            update_summary(&app);
         });
     }
 

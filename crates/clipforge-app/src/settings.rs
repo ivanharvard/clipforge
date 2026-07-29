@@ -1,30 +1,7 @@
 use std::path::PathBuf;
 
-use clipforge_core::panels::QualityMode;
+use clipforge_core::panels::{CompressState, FrameRateLimit, QualityMode, VideoCodec};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PipelineStep {
-    Transform,
-    Trim,
-    Compress,
-}
-
-impl PipelineStep {
-    pub fn label(self) -> &'static str {
-        match self {
-            PipelineStep::Transform => "Transform",
-            PipelineStep::Trim => "Trim",
-            PipelineStep::Compress => "Compress",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PipelineStage {
-    pub step: PipelineStep,
-    pub enabled: bool,
-}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum SavedCompression {
@@ -57,29 +34,22 @@ impl From<SavedCompression> for QualityMode {
 #[serde(default)]
 pub struct AppSettings {
     compression: SavedCompression,
+    compression_frame_rate_limit: FrameRateLimit,
+    compression_codec: VideoCodec,
+    compression_extra_quality: bool,
+    compression_tolerance_percent: u8,
     pub compression_apply_all: bool,
-    pub pipeline: Vec<PipelineStage>,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            compression: SavedCompression::TargetSizeMb(8.0),
+            compression: SavedCompression::TargetSizeMb(10.0),
+            compression_frame_rate_limit: FrameRateLimit::Automatic,
+            compression_codec: VideoCodec::H264,
+            compression_extra_quality: false,
+            compression_tolerance_percent: 10,
             compression_apply_all: true,
-            pipeline: vec![
-                PipelineStage {
-                    step: PipelineStep::Transform,
-                    enabled: true,
-                },
-                PipelineStage {
-                    step: PipelineStep::Trim,
-                    enabled: true,
-                },
-                PipelineStage {
-                    step: PipelineStep::Compress,
-                    enabled: true,
-                },
-            ],
         }
     }
 }
@@ -95,16 +65,29 @@ impl AppSettings {
         let Ok(mut settings) = serde_json::from_str::<Self>(&contents) else {
             return Self::default();
         };
-        settings.normalize_pipeline();
+        if !matches!(settings.compression, SavedCompression::TargetSizeMb(_)) {
+            settings.compression = SavedCompression::TargetSizeMb(10.0);
+        }
+        settings.compression_tolerance_percent = settings.compression_tolerance_percent.min(100);
         settings
     }
 
-    pub fn compression(&self) -> QualityMode {
-        self.compression.into()
+    pub fn compression(&self) -> CompressState {
+        CompressState {
+            mode: self.compression.into(),
+            frame_rate_limit: self.compression_frame_rate_limit,
+            codec: self.compression_codec,
+            extra_quality: self.compression_extra_quality,
+            tolerance_percent: self.compression_tolerance_percent,
+        }
     }
 
-    pub fn set_compression(&mut self, mode: QualityMode) {
-        self.compression = mode.into();
+    pub fn set_compression(&mut self, compression: CompressState) {
+        self.compression = compression.mode.into();
+        self.compression_frame_rate_limit = compression.frame_rate_limit;
+        self.compression_codec = compression.codec;
+        self.compression_extra_quality = compression.extra_quality;
+        self.compression_tolerance_percent = compression.tolerance_percent;
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -115,28 +98,6 @@ impl AppSettings {
         }
         std::fs::write(path, serde_json::to_vec_pretty(self)?)?;
         Ok(())
-    }
-
-    fn normalize_pipeline(&mut self) {
-        let defaults = Self::default().pipeline;
-        let mut normalized = Vec::with_capacity(defaults.len());
-        for stage in &self.pipeline {
-            if !normalized
-                .iter()
-                .any(|existing: &PipelineStage| existing.step == stage.step)
-            {
-                normalized.push(*stage);
-            }
-        }
-        for stage in defaults {
-            if !normalized
-                .iter()
-                .any(|existing| existing.step == stage.step)
-            {
-                normalized.push(stage);
-            }
-        }
-        self.pipeline = normalized;
     }
 }
 
@@ -168,11 +129,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_to_eight_megabytes_and_all_stages() {
+    fn defaults_to_ten_megabytes() {
         let settings = AppSettings::default();
-        assert_eq!(settings.compression(), QualityMode::TargetSizeMb(8.0));
+        assert_eq!(settings.compression().mode, QualityMode::TargetSizeMb(10.0));
         assert!(settings.compression_apply_all);
-        assert_eq!(settings.pipeline.len(), 3);
-        assert!(settings.pipeline.iter().all(|stage| stage.enabled));
     }
 }

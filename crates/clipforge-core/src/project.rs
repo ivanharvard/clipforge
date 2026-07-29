@@ -12,6 +12,8 @@ pub struct Project {
     pub source_path: PathBuf,
     pub source_width: u32,
     pub source_height: u32,
+    #[serde(default)]
+    pub source_frame_rate: f64,
     pub clip_bounds: ClipBounds,
     pub transform: TransformState,
     pub crop: CropState,
@@ -31,6 +33,7 @@ impl Project {
             source_path,
             source_width,
             source_height,
+            source_frame_rate: 0.0,
             clip_bounds,
             transform: TransformState::default(),
             crop: CropState::full_frame(source_width, source_height),

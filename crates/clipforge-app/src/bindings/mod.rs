@@ -1,6 +1,5 @@
 mod export;
 mod panels;
-mod pipeline;
 mod playback;
 mod sync;
 mod timeline;
@@ -21,5 +20,4 @@ pub fn wire_all(app: &App, state: &Rc<RefCell<AppState>>) {
     timeline::wire(app, state);
     export::wire(app, state);
     panels::wire(app, state);
-    pipeline::wire(app, state);
 }

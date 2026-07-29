@@ -5,7 +5,6 @@ import { CropPanel } from "crop_panel.slint";
 import { ResolutionPanel } from "resolution_panel.slint";
 import { AudioPanel } from "audio_panel.slint";
 import { CompressPanel } from "compress_panel.slint";
-import { PipelinePanel } from "pipeline_panel.slint";
 
 // Fixed vertical stack of the 5 editing panels (DESIGN.md section 9).
 // Each panel is independently collapsible (see PanelSection); the stack
@@ -24,12 +23,11 @@ export component Sidebar inherits Rectangle {
             padding-right: Theme.space-4 + 14px;
             spacing: Theme.space-4;
 
-            pipeline-panel := PipelinePanel {}
+            compress-panel := CompressPanel {}
             transform-panel := TransformPanel {}
             crop-panel := CropPanel {}
             resolution-panel := ResolutionPanel {}
             audio-panel := AudioPanel {}
-            compress-panel := CompressPanel {}
         }
     }
 }

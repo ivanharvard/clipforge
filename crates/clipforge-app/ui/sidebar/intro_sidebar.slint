@@ -1,0 +1,69 @@
+// Empty-state guidance shown before the first video is selected.
+import { Theme } from "../theme.slint";
+
+component IntroPoint inherits Rectangle {
+    in property <string> number: "";
+    in property <string> title: "";
+    in property <string> detail: "";
+
+    height: Theme.space-8 + Theme.space-6;
+
+    HorizontalLayout {
+        spacing: Theme.space-3;
+
+        Text {
+            width: Theme.space-6;
+            text: root.number;
+            color: Theme.accent;
+            font-size: Theme.text-xs;
+            vertical-alignment: top;
+        }
+
+        VerticalLayout {
+            spacing: Theme.space-1;
+
+            Text {
+                text: root.title;
+                color: Theme.text-primary;
+                font-size: Theme.text-sm;
+                font-weight: 600;
+            }
+
+            Text {
+                text: root.detail;
+                color: Theme.text-secondary;
+                font-size: Theme.text-xs;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+export component IntroSidebar inherits Rectangle {
+    width: 300px;
+    background: Theme.surface;
+
+    VerticalLayout {
+        alignment: center;
+        padding: Theme.space-6;
+        spacing: Theme.space-6;
+
+        IntroPoint {
+            number: "01";
+            title: "Edit without uploading";
+            detail: "Your source video stays on this device.";
+        }
+
+        IntroPoint {
+            number: "02";
+            title: "Use only what you need";
+            detail: "Trim, crop, resize, rotate, and compress.";
+        }
+
+        IntroPoint {
+            number: "03";
+            title: "Export the queue";
+            detail: "Process one video or a complete batch.";
+        }
+    }
+}

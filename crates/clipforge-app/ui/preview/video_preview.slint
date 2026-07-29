@@ -13,8 +13,7 @@ export component VideoPreview inherits Rectangle {
     in property <int> source-height: 1;
     callback empty-clicked;
 
-    background: Theme.surface;
-    border-radius: Theme.radius-panel;
+    background: Theme.bg;
 
     if !root.has-clip: empty-state := Rectangle {
         background: empty-touch.has-hover ? Theme.surface-alt : transparent;

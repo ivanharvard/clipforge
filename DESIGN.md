@@ -104,17 +104,18 @@ must follow.)
 
 ## 7. Title Bar
 
-- One compact custom title bar, height 36px, flush with the window's top
+- One compact custom title bar, height 56px, flush with the window's top
   edge (`radius-none`).
 - Draggable region covers the bar except interactive controls.
 - Window controls (minimize/maximize/close) are native OS chrome, not
   app-drawn — the custom bar sits inside the OS-decorated window and only
   carries app actions, so it doesn't duplicate or fight the OS's own
   window controls.
-- Left side: "Open Clip" action, then undo/redo icon buttons (dimmed when
-  the corresponding history stack is empty — see section 20). Right side:
-  "Export" action. No app icon/logo is drawn in the bar itself (it's
-  already the window/taskbar icon).
+- Left side: ClipForge's icon and wordmark, then the "Add videos" action and
+  undo/redo icon buttons (dimmed when the corresponding history stack is
+  empty — see section 20). Right side: the orange "Export video" or
+  "Export queue" action, depending on queue length. This mirrors the web
+  editor's command hierarchy.
 
 ## 8. Component Anatomy — Preview Pane
 
@@ -127,7 +128,8 @@ must follow.)
 ## 9. Component Anatomy — Sidebar Shell
 
 - Fixed vertical stack of the 5 panels (Transform, Crop, Resolution, Audio,
-  Compress), each using the shared `panel_section` shell.
+  Compress), each using the shared flat `panel_section` shell with a subtle
+  separator. This order is identical in the web and desktop editors.
 - Each panel has a clickable header row (disclosure glyph + icon + label,
   `text-md`) that independently expands/collapses that panel's body —
   there is no accordion/exclusivity between panels, so any combination can

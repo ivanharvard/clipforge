@@ -7,20 +7,18 @@ import { Theme } from "../theme.slint";
 export component PanelSection inherits Rectangle {
     in property <string> title: "";
     in property <image> icon;
-    in-out property <bool> expanded: false;
+    in-out property <bool> expanded: true;
 
     background: Theme.surface;
-    border-radius: Theme.radius-panel;
-    border-width: 1px;
-    border-color: header-touch.has-hover ? Theme.accent.with-alpha(0.65) : Theme.border-color;
-    animate border-color { duration: 120ms; easing: ease-out; }
+    border-width: 0px;
 
     VerticalLayout {
         padding: Theme.space-4;
+        padding-top: Theme.space-2;
         spacing: root.expanded ? Theme.space-3 : 0px;
 
         header := Rectangle {
-            height: Theme.space-6;
+            height: Theme.space-8 + Theme.space-2;
 
             HorizontalLayout {
                 spacing: Theme.space-2;
@@ -67,6 +65,11 @@ export component PanelSection inherits Rectangle {
                 spacing: Theme.space-3;
                 @children
             }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.border-color;
         }
     }
 }

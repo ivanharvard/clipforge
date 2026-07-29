@@ -13,6 +13,7 @@ import {
 import { TitleBar } from "components/title_bar.slint";
 import { VideoPreview } from "preview/video_preview.slint";
 import { Sidebar } from "sidebar/sidebar.slint";
+import { IntroSidebar } from "sidebar/intro_sidebar.slint";
 import { ScrubberBar } from "timeline/scrubber_bar.slint";
 import { ExportDialog } from "export/export_dialog.slint";
 import { QueueCarousel } from "queue/queue_carousel.slint";
@@ -33,8 +34,7 @@ export {
     ExportPhase,
 }
 
-// Root window: top bar, preview + sidebar split, bottom scrubber bar —
-// matching the layout in the project's design plan.
+// Root window: branded command bar, queue, and a unified editor shell.
 export component App inherits Window {
     title: "ClipForge";
     icon: @image-url("../icons/src/app-icon.svg");
@@ -80,27 +80,45 @@ export component App inherits Window {
             title-bar := TitleBar {
                 can-undo: root.can-undo;
                 can-redo: root.can-redo;
+                queue-count: QueueState.count;
             }
 
-            if QueueState.count > 0: QueueCarousel {}
+            workspace := VerticalLayout {
+                padding: Theme.space-3;
+                spacing: Theme.space-3;
 
-            HorizontalLayout {
-                vertical-stretch: 1;
+                if QueueState.count > 0: QueueCarousel {}
 
-                VideoPreview {
-                    horizontal-stretch: 1;
-                    has-clip: root.has-clip;
-                    frame: root.preview-frame;
-                    error-text: root.load-error-text;
-                    source-width: root.source-width;
-                    source-height: root.source-height;
-                    empty-clicked => { root.open-clip-clicked(); }
+                editor-shell := Rectangle {
+                    vertical-stretch: 1;
+                    background: Theme.surface;
+                    border-radius: Theme.radius-panel;
+                    border-width: 1px;
+                    border-color: Theme.border-color;
+                    clip: true;
+
+                    VerticalLayout {
+                        HorizontalLayout {
+                            vertical-stretch: 1;
+
+                            VideoPreview {
+                                horizontal-stretch: 1;
+                                has-clip: root.has-clip;
+                                frame: root.preview-frame;
+                                error-text: root.load-error-text;
+                                source-width: root.source-width;
+                                source-height: root.source-height;
+                                empty-clicked => { root.open-clip-clicked(); }
+                            }
+
+                            if root.has-clip: Sidebar {}
+                            if !root.has-clip: IntroSidebar {}
+                        }
+
+                        if root.has-clip: ScrubberBar {}
+                    }
                 }
-
-                Sidebar {}
             }
-
-            ScrubberBar {}
         }
     }
 

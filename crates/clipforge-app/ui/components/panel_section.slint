@@ -7,7 +7,7 @@ import { Theme } from "../theme.slint";
 export component PanelSection inherits Rectangle {
     in property <string> title: "";
     in property <image> icon;
-    in-out property <bool> expanded: true;
+    in-out property <bool> expanded: false;
 
     background: Theme.surface;
     border-radius: Theme.radius-panel;
@@ -19,31 +19,37 @@ export component PanelSection inherits Rectangle {
         padding: Theme.space-4;
         spacing: root.expanded ? Theme.space-3 : 0px;
 
-        header := HorizontalLayout {
-            spacing: Theme.space-2;
+        header := Rectangle {
+            height: Theme.space-6;
 
-            Image {
-                source: root.expanded
-                    ? @image-url("../../icons/ui/chevron-down.svg")
-                    : @image-url("../../icons/ui/chevron-right.svg");
-                width: 14px;
-                height: 14px;
-                colorize: Theme.text-secondary;
-            }
+            HorizontalLayout {
+                spacing: Theme.space-2;
 
-            Image {
-                source: root.icon;
-                width: 16px;
-                height: 16px;
-                colorize: Theme.text-secondary;
-            }
+                Image {
+                    source: root.expanded
+                        ? @image-url("../../icons/ui/chevron-down.svg")
+                        : @image-url("../../icons/ui/chevron-right.svg");
+                    width: 14px;
+                    height: 14px;
+                    colorize: Theme.text-secondary;
+                }
 
-            Text {
-                text: root.title;
-                font-size: Theme.text-md;
-                font-weight: 600;
-                color: Theme.text-primary;
-                vertical-alignment: center;
+                Image {
+                    source: root.icon;
+                    width: 16px;
+                    height: 16px;
+                    colorize: Theme.text-secondary;
+                }
+
+                Text {
+                    text: root.title;
+                    font-size: Theme.text-md;
+                    font-weight: 600;
+                    color: Theme.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {}
             }
 
             header-touch := TouchArea {

@@ -48,7 +48,7 @@ impl Default for AppSettings {
             compression_frame_rate_limit: FrameRateLimit::Automatic,
             compression_codec: VideoCodec::H264,
             compression_extra_quality: false,
-            compression_tolerance_percent: 10,
+            compression_tolerance_percent: 25,
             compression_apply_all: true,
         }
     }

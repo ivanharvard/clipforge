@@ -85,7 +85,7 @@ export component CompressPanel inherits PanelSection {
         }
     }
 
-    GroupLabel { text: "TOLERANCE"; }
+    GroupLabel { text: "BELOW-TARGET TOLERANCE"; }
 
     HorizontalLayout {
         spacing: Theme.space-2;
@@ -110,7 +110,7 @@ export component CompressPanel inherits PanelSection {
     }
 
     Text {
-        text: "Allows the final file to exceed the target by this amount.";
+        text: "Allows the final file to be this much smaller than the target.";
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
         wrap: word-wrap;

@@ -75,15 +75,14 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     compress.set_extra_quality(project.compress.extra_quality);
     compress.set_tolerance_percent(i32::from(project.compress.tolerance_percent));
     let target = project.compress.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    let limit = project
+    let minimum = project
         .compress
-        .target_size_limit_bytes()
+        .minimum_target_size_bytes()
         .unwrap_or_default() as f64
         / 1024.0
         / 1024.0;
-    compress.set_estimated_size_text(
-        format!("Target after trim: {target:.0} MiB (up to {limit:.1} MiB)").into(),
-    );
+    compress
+        .set_estimated_size_text(format!("Target after trim: {minimum:.1}-{target:.0} MiB").into());
 
     let playback = app.global::<PlaybackState>();
     let duration = project.clip_bounds.duration();

@@ -32,10 +32,10 @@ fn compression_from_ui(app: &App) -> CoreCompressState {
 fn update_summary(app: &App) {
     let compression = compression_from_ui(app);
     let target = compression.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    let limit = compression.target_size_limit_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    app.global::<CompressState>().set_estimated_size_text(
-        format!("Target after trim: {target:.0} MiB (up to {limit:.1} MiB)").into(),
-    );
+    let minimum =
+        compression.minimum_target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+    app.global::<CompressState>()
+        .set_estimated_size_text(format!("Target after trim: {minimum:.1}-{target:.0} MiB").into());
 }
 
 pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {

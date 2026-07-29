@@ -16,7 +16,8 @@ struct ExportTask {
     job: ExportJob,
     duration_ms: u64,
     label: String,
-    target_size_limit_bytes: Option<u64>,
+    target_size_bytes: Option<u64>,
+    minimum_target_size_bytes: Option<u64>,
 }
 
 const MAX_TARGET_PASSES: usize = 12;
@@ -65,7 +66,8 @@ fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
                 job: ExportJob::from_project(&project, output_path),
                 duration_ms,
                 label,
-                target_size_limit_bytes: project.compress.target_size_limit_bytes(),
+                target_size_bytes: project.compress.target_size_bytes(),
+                minimum_target_size_bytes: project.compress.minimum_target_size_bytes(),
             }
         })
         .collect()
@@ -194,9 +196,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                             break 'tasks;
                         }
 
-                        let Some(target_bytes) = task.target_size_limit_bytes else {
+                        let Some(target_bytes) = task.target_size_bytes else {
                             break;
                         };
+                        let minimum_bytes = task.minimum_target_size_bytes.unwrap_or(target_bytes);
                         let actual_bytes = match std::fs::metadata(&job.output_path) {
                             Ok(metadata) => metadata.len(),
                             Err(error) => {
@@ -205,19 +208,21 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                                 break 'tasks;
                             }
                         };
-                        if actual_bytes <= target_bytes {
+                        if (minimum_bytes..=target_bytes).contains(&actual_bytes) {
                             break;
                         }
+                        let desired_bytes = minimum_bytes + (target_bytes - minimum_bytes) / 2;
                         if pass >= MAX_TARGET_PASSES
                             || job
-                                .reduce_video_bitrate_to_fit(actual_bytes, target_bytes)
+                                .adjust_video_bitrate_to_size(actual_bytes, desired_bytes)
                                 .is_none()
                         {
                             result = Err(format!(
-                                "{} is {:.2} MB; the {:.2} MB target is too small for this clip",
+                                "{} is {:.2} MiB; could not reach the {:.2}-{:.2} MiB target range",
                                 task.label,
                                 actual_bytes as f64 / 1024.0 / 1024.0,
-                                target_bytes as f64 / 1024.0 / 1024.0
+                                minimum_bytes as f64 / 1024.0 / 1024.0,
+                                target_bytes as f64 / 1024.0 / 1024.0,
                             ));
                             break 'tasks;
                         }

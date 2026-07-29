@@ -63,7 +63,7 @@ impl Default for CompressState {
             frame_rate_limit: FrameRateLimit::default(),
             codec: VideoCodec::default(),
             extra_quality: false,
-            tolerance_percent: 10,
+            tolerance_percent: 25,
         }
     }
 }
@@ -99,10 +99,10 @@ impl CompressState {
         }
     }
 
-    /// Returns the largest accepted output size after applying tolerance.
-    pub fn target_size_limit_bytes(&self) -> Option<u64> {
+    /// Returns the smallest accepted output size after applying tolerance.
+    pub fn minimum_target_size_bytes(&self) -> Option<u64> {
         let target = u128::from(self.target_size_bytes()?);
-        let multiplier = u128::from(100 + self.tolerance_percent.min(100) as u16);
+        let multiplier = u128::from(100 - self.tolerance_percent.min(100) as u16);
         u64::try_from(target * multiplier / 100).ok()
     }
 }
@@ -147,14 +147,14 @@ mod tests {
     }
 
     #[test]
-    fn tolerance_allows_a_larger_output() {
+    fn tolerance_allows_a_smaller_output() {
         let state = CompressState {
             tolerance_percent: 25,
             ..CompressState::default()
         };
         assert_eq!(
-            state.target_size_limit_bytes(),
-            Some(12_500 * 1024 * 1024 / 1000)
+            state.minimum_target_size_bytes(),
+            Some(7_500 * 1024 * 1024 / 1000)
         );
     }
 }

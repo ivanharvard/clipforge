@@ -46,27 +46,26 @@ impl ExportJob {
             .ok()
     }
 
-    /// Reduces this job's bitrate based on the measured output/target size
-    /// ratio, with 5% headroom for muxing variance. Returns the new bitrate,
-    /// or `None` when no lower supported bitrate remains.
-    pub fn reduce_video_bitrate_to_fit(
+    /// Adjusts this job's bitrate using the measured output/desired size ratio.
+    /// Returns the new bitrate, or `None` when no supported adjustment remains.
+    pub fn adjust_video_bitrate_to_size(
         &mut self,
         actual_bytes: u64,
-        target_bytes: u64,
+        desired_bytes: u64,
     ) -> Option<u32> {
         let index = self
             .ffmpeg_args
             .iter()
             .position(|argument| argument == "-b:v")?;
         let current = self.video_bitrate_kbps()?;
-        if current <= 64 || actual_bytes == 0 || target_bytes == 0 {
+        if actual_bytes == 0 || desired_bytes == 0 {
             return None;
         }
-        let scaled =
-            u128::from(current) * u128::from(target_bytes) * 95 / (u128::from(actual_bytes) * 100);
-        let next = u32::try_from(scaled)
-            .unwrap_or(u32::MAX)
-            .clamp(64, current - 1);
+        let scaled = u128::from(current) * u128::from(desired_bytes) / u128::from(actual_bytes);
+        let next = u32::try_from(scaled).unwrap_or(u32::MAX).clamp(64, 50_000);
+        if next == current {
+            return None;
+        }
         self.ffmpeg_args[index + 1] = format!("{next}k");
         Some(next)
     }
@@ -107,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn reduces_bitrate_using_measured_file_size() {
+    fn adjusts_bitrate_using_measured_file_size() {
         let project = Project::new(
             PathBuf::from("/tmp/in.mp4"),
             1920,
@@ -122,7 +121,8 @@ mod tests {
             .unwrap();
         job.ffmpeg_args[bitrate_index + 1] = "1000k".to_string();
 
-        assert_eq!(job.reduce_video_bitrate_to_fit(20_000, 10_000), Some(475));
-        assert_eq!(job.video_bitrate_kbps(), Some(475));
+        assert_eq!(job.adjust_video_bitrate_to_size(20_000, 10_000), Some(500));
+        assert_eq!(job.video_bitrate_kbps(), Some(500));
+        assert_eq!(job.adjust_video_bitrate_to_size(5_000, 10_000), Some(1000));
     }
 }

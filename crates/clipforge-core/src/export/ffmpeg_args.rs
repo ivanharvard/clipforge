@@ -95,20 +95,20 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
     args.push("-c:v".to_string());
     match project.compress.codec {
         VideoCodec::H264 => {
-            args.push("libopenh264".to_string());
+            args.push("libx264".to_string());
             args.extend([
-                "-rc_mode".to_string(),
-                "bitrate".to_string(),
-                "-allow_skip_frames".to_string(),
-                "1".to_string(),
+                "-preset".to_string(),
+                if project.compress.extra_quality {
+                    "slow".to_string()
+                } else {
+                    "veryfast".to_string()
+                },
                 "-profile:v".to_string(),
                 if project.compress.extra_quality {
                     "high".to_string()
                 } else {
                     "main".to_string()
                 },
-                "-coder".to_string(),
-                "cabac".to_string(),
             ]);
         }
         VideoCodec::Av1 => {
@@ -242,12 +242,12 @@ mod tests {
     }
 
     #[test]
-    fn quality_mode_sets_openh264_bitrate_control() {
+    fn quality_mode_sets_libx264_bitrate_control() {
         let mut project = sample_project();
         project.compress.mode = QualityMode::Crf(23);
         let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
         assert!(args.contains(&"-b:v".to_string()));
-        assert!(args.windows(2).any(|pair| pair == ["-rc_mode", "bitrate"]));
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "libx264"]));
         assert!(!args.contains(&"-crf".to_string()));
     }
 

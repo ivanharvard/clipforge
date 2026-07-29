@@ -8,6 +8,7 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub(crate) fn tool_command(name: &str) -> Command {
+    #[allow(unused_mut)]
     let mut command = Command::new(tool_path(name));
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);

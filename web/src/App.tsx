@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ExportDialog } from "./components/ExportDialog";
 import { Header } from "./components/Header";
-import { Icon } from "./components/Icon";
+import { QueueBar } from "./components/QueueBar";
 import { SettingsSidebar } from "./components/SettingsSidebar";
 import { Timeline } from "./components/Timeline";
 import { VideoStage } from "./components/VideoStage";
@@ -47,25 +47,36 @@ export function App() {
     video.muted = audio.muted;
   }, [editor.settings?.audio]);
 
+  useEffect(() => setPlayheadMs(0), [editor.activeIndex]);
+
   const startExport = async () => {
-    const project = editor.projectRef.current;
-    if (!editor.clip || !project) return;
+    if (editor.queue.length === 0) return;
     exportCancelledRef.current = false;
-    setExportStatus({ phase: "loading", progress: 0, message: "Starting the local video engine…" });
+    setExportStatus({ phase: "loading", progress: 0, message: "Preparing the video queue…" });
     try {
-      const name = await exportVideo(editor.clip.file, project, {
-        onPhase: (message) => {
-          if (!exportCancelledRef.current) {
-            setExportStatus((current) => ({ ...current, phase: message.startsWith("Loading") ? "loading" : "running", message }));
-          }
-        },
-        onProgress: (progress) => {
-          if (!exportCancelledRef.current) {
-            setExportStatus((current) => ({ ...current, progress }));
-          }
-        },
-      });
-      setExportStatus({ phase: "success", progress: 1, message: `${name} was saved to your downloads.` });
+      const jobs = await editor.prepareQueue();
+      for (let index = 0; index < jobs.length; index += 1) {
+        const job = jobs[index];
+        await exportVideo(job.file, job.project, {
+          onPhase: (message) => {
+            if (!exportCancelledRef.current) {
+              setExportStatus((current) => ({
+                ...current,
+                phase: message.startsWith("Loading") ? "loading" : "running",
+                message: `${job.file.name} · ${index + 1} of ${jobs.length} · ${message}`,
+              }));
+            }
+          },
+          onProgress: (progress) => {
+            if (!exportCancelledRef.current) {
+              setExportStatus((current) => ({ ...current, progress: (index + progress) / jobs.length }));
+            }
+          },
+        });
+      }
+      if (!exportCancelledRef.current) {
+        setExportStatus({ phase: "success", progress: 1, message: jobs.length === 1 ? "Your video was saved to downloads." : `${jobs.length} videos were saved to downloads.` });
+      }
     } catch (error) {
       if (exportCancelledRef.current) return;
       setExportStatus({ phase: "error", progress: 0, message: errorMessage(error) });
@@ -87,23 +98,15 @@ export function App() {
     <div className="app" id="top">
       <Header />
       <main className="workspace">
-        <div className="workspace-heading">
-          <div>
-            <p className="eyebrow">Private, local video editing</p>
-            <h1>Shape the clip. Keep the original.</h1>
-          </div>
-          <button className="button button-primary export-button" type="button" disabled={!loaded || exporting} onClick={startExport}>
-            <Icon name="download" /> Export video
-          </button>
-        </div>
-
         {bindingError ? <div className="notice error">{bindingError}</div> : null}
         {!bindingsReady && !bindingError ? <div className="notice">Loading ClipForge…</div> : null}
 
+        <QueueBar items={editor.queue} activeIndex={editor.activeIndex} exporting={exporting} onAddFiles={editor.addFiles} onSelect={editor.activateClip} onRemove={editor.removeActiveClip} onExport={startExport} />
+
         <div className={`editor-shell${loaded ? " has-clip" : ""}`}>
-          <VideoStage clip={editor.clip} pendingUrl={editor.pendingUrl} settings={editor.settings} videoRef={videoRef} onChooseFile={editor.chooseFile} onMetadata={editor.loadMetadata} onClose={editor.closeClip} onTimeUpdate={setPlayheadMs} />
+          <VideoStage clip={editor.clip} pendingUrl={editor.pendingUrl} settings={editor.settings} videoRef={videoRef} onChooseFiles={editor.addFiles} onMetadata={editor.loadMetadata} onClose={editor.removeActiveClip} onTimeUpdate={setPlayheadMs} />
           {loaded ? (
-            <SettingsSidebar settings={loaded.settings} sourceWidth={loaded.clip.width} sourceHeight={loaded.clip.height} onRotationChange={editor.setRotation} onFlipsChange={editor.setFlips} onCropChange={editor.setCrop} onResolutionChange={editor.setResolution} onAudioChange={editor.setAudio} onCompressionChange={editor.setCompression} />
+            <SettingsSidebar settings={loaded.settings} sourceWidth={loaded.clip.width} sourceHeight={loaded.clip.height} onRotationChange={editor.setRotation} onFlipsChange={editor.setFlips} onCropChange={editor.setCrop} onResolutionChange={editor.setResolution} onAudioChange={editor.setAudio} onCompressionChange={editor.setCompression} compressionApplyAll={editor.compressionApplyAll} onCompressionApplyAllChange={editor.setCompressionApplyAll} />
           ) : (
             <aside className="intro-sidebar">
               <div><span>01</span><p><strong>Edit without uploading</strong>Your source video never leaves this browser.</p></div>

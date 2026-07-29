@@ -38,6 +38,15 @@
   .timeline .time-field {
     display: none;
   }
+
+  .queue-bar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .queue-list {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
 }
 
 @media (max-width: 640px) {
@@ -52,15 +61,25 @@
   }
 
   .workspace {
-    padding: var(--space-6) var(--space-3);
+    padding: var(--space-3);
   }
 
-  .workspace-heading {
-    align-items: flex-start;
+  .queue-bar {
+    grid-template-columns: 1fr;
   }
 
-  .workspace-heading h1 {
-    max-width: 240px;
+  .queue-actions-end,
+  .queue-list {
+    grid-column: 1;
+  }
+
+  .queue-actions-end {
+    justify-content: flex-end;
+  }
+
+  .queue-count,
+  .queue-nav {
+    display: none;
   }
 
   .editor-shell,

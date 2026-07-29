@@ -9,13 +9,13 @@ interface VideoStageProps {
   pendingUrl: string | null;
   settings: EditorSettings | null;
   videoRef: RefObject<HTMLVideoElement | null>;
-  onChooseFile: (file: File) => void;
+  onChooseFiles: (files: File[]) => void;
   onMetadata: (metadata: { durationMs: number; width: number; height: number }) => void;
   onClose: () => void;
   onTimeUpdate: (milliseconds: number) => void;
 }
 
-export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFile, onMetadata, onClose, onTimeUpdate }: VideoStageProps) {
+export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFiles, onMetadata, onClose, onTimeUpdate }: VideoStageProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const sourceUrl = clip?.url ?? pendingUrl;
@@ -26,8 +26,8 @@ export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFile,
   const acceptDrop = (event: DragEvent) => {
     event.preventDefault();
     setDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (file && isVideoFile(file)) onChooseFile(file);
+    const files = Array.from(event.dataTransfer.files).filter(isVideoFile);
+    onChooseFiles(files);
   };
 
   if (!sourceUrl) {
@@ -39,9 +39,9 @@ export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFile,
           <span>Drop a video here or choose one from your device</span>
           <span className="button button-primary">Choose video</span>
         </button>
-        <input ref={inputRef} className="visually-hidden" type="file" accept="video/*,.mkv,.avi,.mov,.m4v" onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          if (file) onChooseFile(file);
+        <input ref={inputRef} className="visually-hidden" aria-label="Choose videos" type="file" accept="video/*,.mkv,.avi,.mov,.m4v" multiple onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []).filter(isVideoFile);
+          onChooseFiles(files);
           event.currentTarget.value = "";
         }} />
       </section>

@@ -69,8 +69,8 @@ export function defaultSettings(width: number, height: number, durationMs: numbe
     },
     audio: { volume: 1, muted: false, normalize: false },
     compression: {
-      mode: "crf",
-      value: 23,
+      mode: "target-size",
+      value: 10,
       frameRateLimit: "automatic",
       codec: "h264",
       extraQuality: false,

@@ -54,6 +54,16 @@
   padding-inline: 16px;
 }
 
+.queue-nav:disabled,
+.remove-video:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.remove-video {
+  padding-inline: var(--space-1);
+}
+
 .panel {
   border-bottom: 1px solid var(--border);
 }
@@ -98,6 +108,27 @@
   margin-bottom: 6px;
   color: var(--text-secondary);
   font-size: 11px;
+}
+
+.panel-hint,
+.field-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.panel-hint {
+  margin-bottom: var(--space-3);
+}
+
+.field-hint {
+  margin-top: 6px;
+}
+
+.number-field output {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .button-row,

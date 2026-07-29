@@ -15,6 +15,8 @@ interface SettingsSidebarProps {
   onResolutionChange: (resolution: EditorSettings["resolution"]) => void;
   onAudioChange: (audio: EditorSettings["audio"]) => void;
   onCompressionChange: (compression: EditorSettings["compression"]) => void;
+  compressionApplyAll: boolean;
+  onCompressionApplyAllChange: (enabled: boolean) => void;
 }
 
 export function SettingsSidebar(props: SettingsSidebarProps) {
@@ -25,7 +27,7 @@ export function SettingsSidebar(props: SettingsSidebarProps) {
       <CropPanel crop={settings.crop} sourceWidth={props.sourceWidth} sourceHeight={props.sourceHeight} onChange={props.onCropChange} />
       <ResolutionPanel resolution={settings.resolution} onChange={props.onResolutionChange} />
       <AudioPanel audio={settings.audio} onChange={props.onAudioChange} />
-      <CompressPanel compression={settings.compression} onChange={props.onCompressionChange} />
+      <CompressPanel compression={settings.compression} applyToAll={props.compressionApplyAll} onChange={props.onCompressionChange} onApplyToAllChange={props.onCompressionApplyAllChange} />
     </aside>
   );
 }

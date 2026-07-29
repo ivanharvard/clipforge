@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  publicDir: "../crates/clipforge-app/icons/src",
   build: {
     outDir: "../dist/web",
     emptyOutDir: true,

@@ -24,3 +24,5 @@ appimage-builder \
   --recipe packaging/linux/appimage/AppImageBuilder.yml \
   --skip-test
 mv ClipForge*.AppImage dist/ 2>/dev/null || true
+
+echo "Done. The AppImage is in dist/."

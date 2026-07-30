@@ -86,11 +86,13 @@ export global AudioState {
     in property <[string]> tracks: ["Track 1"];
     in-out property <int> track-index: 0;
     in-out property <bool> normalize: false;
+    in-out property <bool> merge-tracks: false;
 
     callback volume-changed(float);
     callback mute-toggled();
     callback track-selected(int);
     callback normalize-toggled();
+    callback merge-tracks-toggled();
 }
 
 export global CompressState {
@@ -124,6 +126,7 @@ export global ToolPipelineState {
 export global QueueState {
     in-out property <[QueueItem]> items;
     in-out property <int> count: 0;
+    in-out property <int> active-index: -1;
     in-out property <string> current-name: "";
     in-out property <string> previous-name: "";
     in-out property <string> next-name: "";

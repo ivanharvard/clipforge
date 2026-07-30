@@ -22,6 +22,7 @@ component TextButton inherits Rectangle {
         padding-left: Theme.space-4;
         padding-right: Theme.space-4;
         alignment: center;
+        cross-axis-alignment: center;
 
         Text {
             text: root.label;
@@ -58,6 +59,7 @@ component QueueCard inherits Rectangle {
         padding-left: Theme.space-3;
         padding-right: Theme.space-3;
         spacing: Theme.space-2;
+        cross-axis-alignment: center;
 
         VerticalLayout {
             alignment: center;
@@ -96,6 +98,7 @@ component QueueCard inherits Rectangle {
 export component QueueCarousel inherits Rectangle {
     in property <[QueueItem]> items;
     in property <int> count: 0;
+    in property <int> active-index: -1;
     in property <bool> can-previous: false;
     in property <bool> can-next: false;
     callback add-clicked;
@@ -122,11 +125,17 @@ export component QueueCarousel inherits Rectangle {
     action-row := Rectangle {
         x: parent.width - self.width - Theme.space-3;
         y: (parent.height - self.height) / 2;
-        width: 192px;
         height: 40px;
+        // A bare Rectangle with no explicit width and no Layout managing it
+        // defaults to filling its parent — which is why dropping the old
+        // hardcoded `width: 192px` made this balloon across the whole bar
+        // instead of just fitting its content. Size it to the row's actual
+        // preferred width instead of guessing a fixed number.
+        width: row.preferred-width;
 
-        HorizontalLayout {
+        row := HorizontalLayout {
             spacing: Theme.space-2;
+            cross-axis-alignment: center;
 
             IconButton {
                 icon: @image-url("../../icons/ui/chevron-left.svg");
@@ -162,11 +171,24 @@ export component QueueCarousel inherits Rectangle {
         height: 40px;
         clip: true;
 
-        HorizontalLayout {
-            width: parent.width;
+        property <length> card-stride: 164px + Theme.space-2;
+        // Center of the active card, measured from the strip's own left edge.
+        property <length> active-card-center: root.active-index >= 0
+            ? root.active-index * card-stride + 82px
+            : self.width / 2;
+        property <length> content-width: Math.max(0px, root.count * card-stride - Theme.space-2);
+        property <length> max-scroll: Math.max(0px, content-width - self.width);
+        // Clamp so we never scroll past either end of the strip just to
+        // center a card near an edge.
+        property <length> scroll-offset: Math.max(0px, Math.min(active-card-center - self.width / 2, max-scroll));
+
+        track := HorizontalLayout {
+            x: -queue-strip.scroll-offset;
             height: parent.height;
             spacing: Theme.space-2;
             alignment: start;
+            animate x { duration: 200ms; easing: ease-out; }
+
             for item in root.items: QueueCard {
                 label: item.name;
                 position: "Video " + (item.index + 1) + " of " + root.count;

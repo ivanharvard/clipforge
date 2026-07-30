@@ -14,6 +14,7 @@ component CropField inherits HorizontalLayout {
     callback edited(int);
 
     spacing: Theme.space-2;
+    cross-axis-alignment: center;
 
     Text {
         text: root.label;
@@ -90,6 +91,7 @@ export component CropPanel inherits PanelSection {
 
     HorizontalLayout {
         spacing: Theme.space-2;
+        cross-axis-alignment: center;
 
         IconButton {
             icon: @image-url("../../icons/ui/scan.svg");

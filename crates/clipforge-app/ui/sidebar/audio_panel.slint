@@ -11,6 +11,7 @@ export component AudioPanel inherits PanelSection {
 
     HorizontalLayout {
         spacing: Theme.space-2;
+        cross-axis-alignment: center;
 
         LabeledSlider {
             horizontal-stretch: 1;
@@ -36,6 +37,7 @@ export component AudioPanel inherits PanelSection {
     }
 
     ComboBox {
+        enabled: !AudioState.merge-tracks;
         model: AudioState.tracks;
         current-index: AudioState.track-index;
         selected(_) => {
@@ -45,11 +47,34 @@ export component AudioPanel inherits PanelSection {
     }
 
     CheckBox {
+        text: "Merge all tracks into one";
+        checked: AudioState.merge-tracks;
+        toggled => {
+            AudioState.merge-tracks = self.checked;
+            AudioState.merge-tracks-toggled();
+        }
+    }
+
+    Text {
+        text: "Mixes every audio track in the source down into a single track, instead of exporting only the one picked above.";
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
+    }
+
+    CheckBox {
         text: "Normalize audio";
         checked: AudioState.normalize;
         toggled => {
             AudioState.normalize = self.checked;
             AudioState.normalize-toggled();
         }
+    }
+
+    Text {
+        text: "Evens out loudness on the exported audio (the merged mix, or the track selected above) — doesn't combine tracks.";
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
     }
 }

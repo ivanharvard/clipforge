@@ -9,6 +9,7 @@ export component TransformPanel inherits PanelSection {
 
     HorizontalLayout {
         spacing: Theme.space-2;
+        cross-axis-alignment: center;
         Text { text: "Rotate"; color: Theme.text-secondary; font-size: Theme.text-xs; vertical-alignment: center; }
         IconButton {
             icon: @image-url("../../icons/ui/rotate-ccw.svg");
@@ -40,6 +41,7 @@ export component TransformPanel inherits PanelSection {
 
     HorizontalLayout {
         spacing: Theme.space-2;
+        cross-axis-alignment: center;
         Text { text: "Flip"; color: Theme.text-secondary; font-size: Theme.text-xs; vertical-alignment: center; }
         IconButton {
             icon: @image-url("../../icons/ui/flip-horizontal-2.svg");

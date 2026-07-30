@@ -92,6 +92,7 @@ export component App inherits Window {
                 QueueCarousel {
                     items: QueueState.items;
                     count: QueueState.count;
+                    active-index: QueueState.active-index;
                     can-previous: QueueState.can-previous;
                     can-next: QueueState.can-next;
                     add-clicked => { root.open-clip-clicked(); }

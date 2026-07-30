@@ -7,47 +7,111 @@ import { ResolutionPanel } from "resolution_panel.slint";
 import { AudioPanel } from "audio_panel.slint";
 import { CompressPanel } from "compress_panel.slint";
 
+// Renders the five tools as stable, permanently-instantiated components —
+// never destroyed and recreated — and derives each one's on-screen slot from
+// ToolPipelineState.items instead of looping over `items` and conditionally
+// instantiating a panel per kind at each index. That old pattern tore down
+// and rebuilt whichever panel's kind moved to a different index on every
+// reorder, which broke mid-drag (the TouchArea driving the drag was
+// destroyed under the pointer) and reset any state the torn-down instance
+// held locally.
 export component Sidebar inherits Rectangle {
     width: 320px;
     background: Theme.surface;
 
-    scroll := ScrollView {
-        VerticalLayout {
-            width: scroll.visible-width;
-            padding-right: 14px;
-            spacing: 0px;
+    pure function position-of(kind: string) -> int {
+        if ToolPipelineState.items[0].kind == kind { return 0; }
+        if ToolPipelineState.items[1].kind == kind { return 1; }
+        if ToolPipelineState.items[2].kind == kind { return 2; }
+        if ToolPipelineState.items[3].kind == kind { return 3; }
+        return 4;
+    }
 
-            for tool[index] in ToolPipelineState.items: VerticalLayout {
-                if tool.kind == "compress": CompressPanel {
-                    tool-position: index;
-                    tool-enabled: tool.enabled;
-                    tool-expanded: tool.expanded;
-                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
-                }
-                if tool.kind == "transform": TransformPanel {
-                    tool-position: index;
-                    tool-enabled: tool.enabled;
-                    tool-expanded: tool.expanded;
-                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
-                }
-                if tool.kind == "crop": CropPanel {
-                    tool-position: index;
-                    tool-enabled: tool.enabled;
-                    tool-expanded: tool.expanded;
-                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
-                }
-                if tool.kind == "resolution": ResolutionPanel {
-                    tool-position: index;
-                    tool-enabled: tool.enabled;
-                    tool-expanded: tool.expanded;
-                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
-                }
-                if tool.kind == "audio": AudioPanel {
-                    tool-position: index;
-                    tool-enabled: tool.enabled;
-                    tool-expanded: tool.expanded;
-                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
-                }
+    // Real rendered height (collapsed or expanded) of whichever panel
+    // currently occupies `position`.
+    pure function height-at(position: int) -> length {
+        if compress.tool-position == position { return compress.height; }
+        if transform.tool-position == position { return transform.height; }
+        if crop.tool-position == position { return crop.height; }
+        if resolution.tool-position == position { return resolution.height; }
+        return audio.height;
+    }
+
+    pure function y-at(position: int) -> length {
+        (position > 0 ? height-at(0) : 0px)
+        + (position > 1 ? height-at(1) : 0px)
+        + (position > 2 ? height-at(2) : 0px)
+        + (position > 3 ? height-at(3) : 0px)
+    }
+
+    scroll := ScrollView {
+        // Slint only auto-derives a ScrollView's scrollable range from
+        // children that are actual Layout elements; `content` is a plain
+        // Rectangle (needed so the panels below can be positioned by
+        // absolute `y` instead of layout order), so that inference silently
+        // yields a zero-height viewport — no overflow, nothing to scroll —
+        // unless we bind it explicitly here.
+        viewport-width: content.width;
+        viewport-height: content.height;
+
+        content := Rectangle {
+            width: scroll.visible-width;
+            height: compress.height + transform.height + crop.height + resolution.height + audio.height;
+
+            compress := CompressPanel {
+                width: parent.width - 14px;
+                tool-position: root.position-of("compress");
+                tool-enabled: ToolPipelineState.items[compress.tool-position].enabled;
+                tool-expanded: ToolPipelineState.items[compress.tool-position].expanded;
+                next-step-height: root.height-at(Math.min(4, compress.tool-position + 1));
+                prev-step-height: root.height-at(Math.max(0, compress.tool-position - 1));
+                y: root.y-at(compress.tool-position);
+                animate y { duration: 160ms; easing: ease-out; }
+                expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(compress.tool-position, value); }
+            }
+            transform := TransformPanel {
+                width: parent.width - 14px;
+                tool-position: root.position-of("transform");
+                tool-enabled: ToolPipelineState.items[transform.tool-position].enabled;
+                tool-expanded: ToolPipelineState.items[transform.tool-position].expanded;
+                next-step-height: root.height-at(Math.min(4, transform.tool-position + 1));
+                prev-step-height: root.height-at(Math.max(0, transform.tool-position - 1));
+                y: root.y-at(transform.tool-position);
+                animate y { duration: 160ms; easing: ease-out; }
+                expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(transform.tool-position, value); }
+            }
+            crop := CropPanel {
+                width: parent.width - 14px;
+                tool-position: root.position-of("crop");
+                tool-enabled: ToolPipelineState.items[crop.tool-position].enabled;
+                tool-expanded: ToolPipelineState.items[crop.tool-position].expanded;
+                next-step-height: root.height-at(Math.min(4, crop.tool-position + 1));
+                prev-step-height: root.height-at(Math.max(0, crop.tool-position - 1));
+                y: root.y-at(crop.tool-position);
+                animate y { duration: 160ms; easing: ease-out; }
+                expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(crop.tool-position, value); }
+            }
+            resolution := ResolutionPanel {
+                width: parent.width - 14px;
+                tool-position: root.position-of("resolution");
+                tool-enabled: ToolPipelineState.items[resolution.tool-position].enabled;
+                tool-expanded: ToolPipelineState.items[resolution.tool-position].expanded;
+                next-step-height: root.height-at(Math.min(4, resolution.tool-position + 1));
+                prev-step-height: root.height-at(Math.max(0, resolution.tool-position - 1));
+                y: root.y-at(resolution.tool-position);
+                animate y { duration: 160ms; easing: ease-out; }
+                expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(resolution.tool-position, value); }
+            }
+            audio := AudioPanel {
+                width: parent.width - 14px;
+                tool-position: root.position-of("audio");
+                tool-enabled: ToolPipelineState.items[audio.tool-position].enabled;
+                tool-expanded: ToolPipelineState.items[audio.tool-position].expanded;
+                next-step-height: root.height-at(Math.min(4, audio.tool-position + 1));
+                prev-step-height: root.height-at(Math.max(0, audio.tool-position - 1));
+                y: root.y-at(audio.tool-position);
+                animate y { duration: 160ms; easing: ease-out; }
+                expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(audio.tool-position, value); }
             }
         }
     }

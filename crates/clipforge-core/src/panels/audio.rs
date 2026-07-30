@@ -8,8 +8,14 @@ pub struct AudioState {
     pub volume: f32,
     pub muted: bool,
     /// Index into the source's audio streams, `None` selects the default.
+    /// Ignored when `merge_tracks` is set, since every stream is mixed down
+    /// instead of just one being selected.
     pub track_index: Option<usize>,
     pub normalize: bool,
+    /// Mix every audio stream in the source down into a single output track
+    /// (via ffmpeg's `amix`) instead of exporting only `track_index`.
+    #[serde(default)]
+    pub merge_tracks: bool,
 }
 
 impl Default for AudioState {
@@ -19,6 +25,7 @@ impl Default for AudioState {
             muted: false,
             track_index: None,
             normalize: false,
+            merge_tracks: false,
         }
     }
 }

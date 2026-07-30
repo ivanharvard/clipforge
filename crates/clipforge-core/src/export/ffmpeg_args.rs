@@ -63,7 +63,36 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
     } else {
         AudioState::default()
     };
-    if let Some(track) = audio.track_index.filter(|_| !audio.muted) {
+    // Only worth mixing down when there's more than one stream to combine;
+    // with 0 or 1 tracks this degrades to the normal single-track mapping.
+    let merge_tracks = audio.merge_tracks && !audio.muted && project.audio_tracks.len() > 1;
+
+    if merge_tracks {
+        let track_count = project.audio_tracks.len();
+        let mut filter = (0..track_count)
+            .map(|i| format!("[0:a:{i}]volume={}[a{i}]", audio.effective_volume()))
+            .collect::<Vec<_>>()
+            .join(";");
+        filter.push(';');
+        filter.push_str(&(0..track_count).map(|i| format!("[a{i}]")).collect::<String>());
+        filter.push_str(&format!(
+            "amix=inputs={track_count}:duration=longest:dropout_transition=0[amixed]"
+        ));
+        let out_label = if audio.normalize {
+            filter.push_str(";[amixed]loudnorm=I=-16:TP=-1.5:LRA=11[aout]");
+            "[aout]"
+        } else {
+            "[amixed]"
+        };
+        args.extend([
+            "-filter_complex".to_string(),
+            filter,
+            "-map".to_string(),
+            "0:v:0".to_string(),
+            "-map".to_string(),
+            out_label.to_string(),
+        ]);
+    } else if let Some(track) = audio.track_index.filter(|_| !audio.muted) {
         args.extend([
             "-map".to_string(),
             "0:v:0".to_string(),
@@ -123,12 +152,16 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
         args.push("aac".to_string());
         args.push("-b:a".to_string());
         args.push("128k".to_string());
-        args.push("-af".to_string());
-        let mut audio_filters = vec![format!("volume={}", audio.effective_volume())];
-        if audio.normalize {
-            audio_filters.push("loudnorm=I=-16:TP=-1.5:LRA=11".to_string());
+        // When merging, volume and loudnorm are already applied inside the
+        // -filter_complex graph above — an extra -af here would double them up.
+        if !merge_tracks {
+            args.push("-af".to_string());
+            let mut audio_filters = vec![format!("volume={}", audio.effective_volume())];
+            if audio.normalize {
+                audio_filters.push("loudnorm=I=-16:TP=-1.5:LRA=11".to_string());
+            }
+            args.push(audio_filters.join(","));
         }
-        args.push(audio_filters.join(","));
     }
 
     args.push("-progress".to_string());
@@ -250,6 +283,73 @@ mod tests {
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:v:0"]));
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:a:1"]));
         assert!(args.iter().any(|argument| argument.contains("loudnorm")));
+    }
+
+    fn with_two_audio_streams(mut project: Project) -> Project {
+        project.audio_tracks = vec![
+            crate::media::AudioStreamInfo {
+                index: 0,
+                codec: "aac".to_string(),
+                channels: 2,
+                sample_rate: 48_000,
+                language: String::new(),
+                title: String::new(),
+                is_default: true,
+            },
+            crate::media::AudioStreamInfo {
+                index: 1,
+                codec: "aac".to_string(),
+                channels: 2,
+                sample_rate: 48_000,
+                language: String::new(),
+                title: String::new(),
+                is_default: false,
+            },
+        ];
+        project
+    }
+
+    #[test]
+    fn merge_tracks_mixes_every_stream_via_filter_complex() {
+        let mut project = with_two_audio_streams(sample_project());
+        project.audio.merge_tracks = true;
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let filter_index = args
+            .iter()
+            .position(|argument| argument == "-filter_complex")
+            .expect("has -filter_complex");
+        let filter = &args[filter_index + 1];
+        assert!(filter.contains("[0:a:0]"));
+        assert!(filter.contains("[0:a:1]"));
+        assert!(filter.contains("amix=inputs=2"));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "[amixed]"]));
+        // A single explicit track_index must not also be mapped once merging.
+        assert!(!args.contains(&"-af".to_string()));
+    }
+
+    #[test]
+    fn merge_tracks_with_normalize_chains_loudnorm_after_amix() {
+        let mut project = with_two_audio_streams(sample_project());
+        project.audio.merge_tracks = true;
+        project.audio.normalize = true;
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let filter = &args[args
+            .iter()
+            .position(|argument| argument == "-filter_complex")
+            .unwrap()
+            + 1];
+        assert!(filter.contains("[amixed]loudnorm="));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "[aout]"]));
+    }
+
+    #[test]
+    fn merge_tracks_ignored_with_fewer_than_two_streams() {
+        let mut project = sample_project();
+        project.audio.merge_tracks = true;
+        project.audio.track_index = Some(0);
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        assert!(!args.contains(&"-filter_complex".to_string()));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "0:a:0"]));
     }
 
     #[test]

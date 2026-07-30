@@ -19,6 +19,7 @@ export component ScrubberBar inherits Rectangle {
         HorizontalLayout {
             height: 40px;
             spacing: Theme.space-3;
+            cross-axis-alignment: center;
 
             IconButton {
                 icon: PlaybackState.playing
@@ -110,6 +111,7 @@ export component ScrubberBar inherits Rectangle {
 
         HorizontalLayout {
             alignment: center;
+            cross-axis-alignment: center;
             spacing: Theme.space-2;
             Rectangle {}
             Text { text: "Start"; color: Theme.text-secondary; font-size: Theme.text-xs; vertical-alignment: center; }

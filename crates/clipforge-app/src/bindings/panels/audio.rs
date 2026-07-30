@@ -83,4 +83,21 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        audio.on_merge_tracks_toggled(move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
+            let Some(project) = &mut app_state.project else {
+                return;
+            };
+            project.audio.merge_tracks = !project.audio.merge_tracks;
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
+        });
+    }
 }

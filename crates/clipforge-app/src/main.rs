@@ -30,6 +30,7 @@ fn sync_queue_state(app: &App, state: &AppState) {
         .collect::<Vec<_>>();
     queue.set_items(ModelRc::new(VecModel::from(items)));
     queue.set_count(count as i32);
+    queue.set_active_index(active.map(|index| index as i32).unwrap_or(-1));
     queue.set_current_name(
         active
             .and_then(|index| state.queue_item_name(index))

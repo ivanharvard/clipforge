@@ -89,6 +89,7 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     audio.set_muted(project.audio.muted);
     audio.set_track_index(project.audio.track_index.unwrap_or(0) as i32);
     audio.set_normalize(project.audio.normalize);
+    audio.set_merge_tracks(project.audio.merge_tracks);
 
     let pipeline = project
         .effective_pipeline()

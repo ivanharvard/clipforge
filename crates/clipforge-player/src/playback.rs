@@ -53,9 +53,34 @@ impl PlayerContext {
     }
 
     pub fn set_track(&self, audio_track_index: usize) -> PlayerResult<()> {
-        // mpv track ids are 1-based.
+        let track_count: i64 = self
+            .mpv()
+            .get_property("track-list/count")
+            .map_err(PlayerError::Mpv)?;
+        let mut ordinal = 0usize;
+        for index in 0..track_count {
+            let track_type: String = self
+                .mpv()
+                .get_property(&format!("track-list/{index}/type"))
+                .map_err(PlayerError::Mpv)?;
+            if track_type != "audio" {
+                continue;
+            }
+            if ordinal == audio_track_index {
+                let id: i64 = self
+                    .mpv()
+                    .get_property(&format!("track-list/{index}/id"))
+                    .map_err(PlayerError::Mpv)?;
+                return self.mpv().set_property("aid", id).map_err(PlayerError::Mpv);
+            }
+            ordinal += 1;
+        }
+        Err(PlayerError::AudioTrackMissing(audio_track_index))
+    }
+
+    pub fn set_video_filters(&self, filters: &[String]) -> PlayerResult<()> {
         self.mpv()
-            .set_property("aid", (audio_track_index + 1) as i64)
+            .set_property("vf", filters.join(","))
             .map_err(PlayerError::Mpv)
     }
 

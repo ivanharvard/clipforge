@@ -58,6 +58,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 }
                 app_state.push_undo_snapshot();
                 app_state.update_compression(compression);
+                let _ = app_state.apply_project_preview();
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             update_summary(&app);

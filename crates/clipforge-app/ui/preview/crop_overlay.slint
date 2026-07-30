@@ -34,6 +34,8 @@ export component CropOverlay inherits Rectangle {
     property <length> crop-y: root.letterbox-y + CropState.y * 1px * root.scale;
     property <length> crop-w: CropState.width * 1px * root.scale;
     property <length> crop-h: CropState.height * 1px * root.scale;
+    // At least a 24px screen-space hit area, even on large source videos.
+    property <int> handle-hit: Math.max(20, Math.round(24px / root.scale / 1px));
 
     pure function to-source-x(screen-x: length) -> int {
         return Math.max(0, Math.min(root.source-width, Math.round((screen-x - root.letterbox-x) / root.scale / 1px)));
@@ -70,22 +72,22 @@ export component CropOverlay inherits Rectangle {
     drag := TouchArea {
         pointer-event(event) => {
             if (event.kind == PointerEventKind.down) {
-                if (root.to-source-x(self.pressed-x) <= CropState.x + 20 && root.to-source-y(self.pressed-y) <= CropState.y + 20) {
+                if (Math.abs(root.to-source-x(self.pressed-x) - CropState.x) <= root.handle-hit && Math.abs(root.to-source-y(self.pressed-y) - CropState.y) <= root.handle-hit) {
                     root.drag-mode = 1;
                     root.anchor-x = CropState.x + CropState.width;
                     root.anchor-y = CropState.y + CropState.height;
                     CropState.snapshot-requested();
-                } else if (root.to-source-x(self.pressed-x) >= CropState.x + CropState.width - 20 && root.to-source-y(self.pressed-y) <= CropState.y + 20) {
+                } else if (Math.abs(root.to-source-x(self.pressed-x) - CropState.x - CropState.width) <= root.handle-hit && Math.abs(root.to-source-y(self.pressed-y) - CropState.y) <= root.handle-hit) {
                     root.drag-mode = 2;
                     root.anchor-x = CropState.x;
                     root.anchor-y = CropState.y + CropState.height;
                     CropState.snapshot-requested();
-                } else if (root.to-source-x(self.pressed-x) <= CropState.x + 20 && root.to-source-y(self.pressed-y) >= CropState.y + CropState.height - 20) {
+                } else if (Math.abs(root.to-source-x(self.pressed-x) - CropState.x) <= root.handle-hit && Math.abs(root.to-source-y(self.pressed-y) - CropState.y - CropState.height) <= root.handle-hit) {
                     root.drag-mode = 3;
                     root.anchor-x = CropState.x + CropState.width;
                     root.anchor-y = CropState.y;
                     CropState.snapshot-requested();
-                } else if (root.to-source-x(self.pressed-x) >= CropState.x + CropState.width - 20 && root.to-source-y(self.pressed-y) >= CropState.y + CropState.height - 20) {
+                } else if (Math.abs(root.to-source-x(self.pressed-x) - CropState.x - CropState.width) <= root.handle-hit && Math.abs(root.to-source-y(self.pressed-y) - CropState.y - CropState.height) <= root.handle-hit) {
                     root.drag-mode = 4;
                     root.anchor-x = CropState.x;
                     root.anchor-y = CropState.y;
@@ -117,5 +119,22 @@ export component CropOverlay inherits Rectangle {
                 CropState.changed();
             }
         }
+    }
+
+    // Photoshop-style visible corner handles. The TouchArea above supplies
+    // the larger invisible hit regions.
+    for handle in [
+        { x: root.crop-x, y: root.crop-y },
+        { x: root.crop-x + root.crop-w, y: root.crop-y },
+        { x: root.crop-x, y: root.crop-y + root.crop-h },
+        { x: root.crop-x + root.crop-w, y: root.crop-y + root.crop-h },
+    ]: Rectangle {
+        x: handle.x - 6px;
+        y: handle.y - 6px;
+        width: 12px;
+        height: 12px;
+        background: Theme.accent;
+        border-width: 2px;
+        border-color: Theme.text-primary;
     }
 }

@@ -7,6 +7,9 @@ import {
     AudioState,
     CompressState,
     QueueState,
+    QueueItem,
+    ToolPipelineState,
+    ToolItem,
     ExportDialogState,
     ExportPhase,
 } from "state.slint";
@@ -30,6 +33,9 @@ export {
     AudioState,
     CompressState,
     QueueState,
+    QueueItem,
+    ToolPipelineState,
+    ToolItem,
     ExportDialogState,
     ExportPhase,
 }
@@ -51,9 +57,11 @@ export component App inherits Window {
     in property <int> source-height: 1;
     in property <bool> can-undo: false;
     in property <bool> can-redo: false;
+    out property <int> preview-viewport-width: Math.round(preview.width / 1px);
+    out property <int> preview-viewport-height: Math.round(preview.height / 1px);
 
-    callback open-clip-clicked <=> title-bar.open-clip-clicked;
-    callback export-clicked <=> title-bar.export-clicked;
+    callback open-clip-clicked;
+    callback export-clicked;
     callback undo-requested <=> title-bar.undo-clicked;
     callback redo-requested <=> title-bar.redo-clicked;
 
@@ -80,14 +88,16 @@ export component App inherits Window {
             title-bar := TitleBar {
                 can-undo: root.can-undo;
                 can-redo: root.can-redo;
-                queue-count: QueueState.count;
             }
 
             workspace := VerticalLayout {
                 padding: Theme.space-3;
                 spacing: Theme.space-3;
 
-                if QueueState.count > 0: QueueCarousel {}
+                QueueCarousel {
+                    add-clicked => { root.open-clip-clicked(); }
+                    export-clicked => { root.export-clicked(); }
+                }
 
                 editor-shell := Rectangle {
                     vertical-stretch: 1;
@@ -101,7 +111,7 @@ export component App inherits Window {
                         HorizontalLayout {
                             vertical-stretch: 1;
 
-                            VideoPreview {
+                            preview := VideoPreview {
                                 horizontal-stretch: 1;
                                 has-clip: root.has-clip;
                                 frame: root.preview-frame;

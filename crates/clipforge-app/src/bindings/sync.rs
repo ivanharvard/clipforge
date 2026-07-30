@@ -1,10 +1,11 @@
 use clipforge_core::panels::{FrameRateLimit, QualityMode, ResolutionPreset, VideoCodec};
 use clipforge_core::Project;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::app_state::AppState;
 use crate::{
-    App, AudioState, CompressState, CropState, PlaybackState, ResolutionState, TransformState,
+    App, AudioState, CompressState, CropState, PlaybackState, ResolutionState, ToolItem,
+    ToolPipelineState, TransformState,
 };
 
 /// Refreshes the title bar's undo/redo button enabled-state from `state`'s
@@ -41,6 +42,7 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     crop.set_aspect_locked(project.crop.aspect_locked);
 
     let transform = app.global::<TransformState>();
+    transform.set_rotation_degrees(i32::from(project.transform.rotation()));
     transform.set_flip_horizontal(project.transform.flip_horizontal);
     transform.set_flip_vertical(project.transform.flip_vertical);
 
@@ -52,10 +54,52 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     resolution.set_custom_fields_enabled(project.resolution.preset == ResolutionPreset::Custom);
 
     let audio = app.global::<AudioState>();
+    let track_labels = project
+        .audio_tracks
+        .iter()
+        .enumerate()
+        .map(|(ordinal, track)| {
+            let channels = match track.channels {
+                1 => "mono".to_string(),
+                2 => "stereo".to_string(),
+                count => format!("{count} ch"),
+            };
+            let detail_value = if !track.title.is_empty() {
+                track.title.as_str()
+            } else {
+                track.language.as_str()
+            };
+            let detail = if detail_value.is_empty() {
+                String::new()
+            } else {
+                format!(" · {detail_value}")
+            };
+            SharedString::from(format!(
+                "Track {} · {} · {} · {} Hz{}",
+                ordinal + 1,
+                track.codec.to_uppercase(),
+                channels,
+                track.sample_rate,
+                detail
+            ))
+        })
+        .collect::<Vec<_>>();
+    audio.set_tracks(ModelRc::new(VecModel::from(track_labels)));
     audio.set_volume(project.audio.volume);
     audio.set_muted(project.audio.muted);
     audio.set_track_index(project.audio.track_index.unwrap_or(0) as i32);
     audio.set_normalize(project.audio.normalize);
+
+    let pipeline = project
+        .effective_pipeline()
+        .into_iter()
+        .map(|stage| ToolItem {
+            kind: stage.kind.as_str().into(),
+            enabled: stage.enabled,
+        })
+        .collect::<Vec<_>>();
+    app.global::<ToolPipelineState>()
+        .set_items(ModelRc::new(VecModel::from(pipeline)));
 
     let compress = app.global::<CompressState>();
     let target_size = match project.compress.mode {

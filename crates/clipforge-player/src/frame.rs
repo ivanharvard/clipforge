@@ -15,6 +15,16 @@ pub struct FrameBuffer {
 }
 
 impl FrameBuffer {
+    pub fn prepare(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+        self.rgba.resize((width * height * 4) as usize, 0);
+    }
+
+    pub fn mark_rendered(&mut self) {
+        self.generation += 1;
+    }
+
     pub fn replace(&mut self, width: u32, height: u32, rgba: Vec<u8>) {
         debug_assert_eq!(rgba.len(), (width * height * 4) as usize);
         self.width = width;

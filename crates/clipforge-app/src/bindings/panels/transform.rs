@@ -20,13 +20,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             app_state.push_undo_snapshot();
             if let Some(project) = &mut app_state.project {
                 project.transform.rotate_clockwise();
-                let (rotation, h, v) = (
-                    project.transform.rotation(),
-                    project.transform.flip_horizontal,
-                    project.transform.flip_vertical,
-                );
-                let _ = app_state.player.set_transform(rotation, h, v);
+                app.global::<TransformState>()
+                    .set_rotation_degrees(i32::from(project.transform.rotation()));
             }
+            let _ = app_state.apply_project_preview();
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -42,13 +39,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             app_state.push_undo_snapshot();
             if let Some(project) = &mut app_state.project {
                 project.transform.rotate_counter_clockwise();
-                let (rotation, h, v) = (
-                    project.transform.rotation(),
-                    project.transform.flip_horizontal,
-                    project.transform.flip_vertical,
-                );
-                let _ = app_state.player.set_transform(rotation, h, v);
+                app.global::<TransformState>()
+                    .set_rotation_degrees(i32::from(project.transform.rotation()));
             }
+            let _ = app_state.apply_project_preview();
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -67,12 +61,8 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     return;
                 };
                 project.transform.flip_horizontal = !project.transform.flip_horizontal;
-                let (rotation, h, v) = (
-                    project.transform.rotation(),
-                    project.transform.flip_horizontal,
-                    project.transform.flip_vertical,
-                );
-                let _ = app_state.player.set_transform(rotation, h, v);
+                let h = project.transform.flip_horizontal;
+                let _ = app_state.apply_project_preview();
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 h
             };
@@ -94,12 +84,8 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     return;
                 };
                 project.transform.flip_vertical = !project.transform.flip_vertical;
-                let (rotation, h, v) = (
-                    project.transform.rotation(),
-                    project.transform.flip_horizontal,
-                    project.transform.flip_vertical,
-                );
-                let _ = app_state.player.set_transform(rotation, h, v);
+                let v = project.transform.flip_vertical;
+                let _ = app_state.apply_project_preview();
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 v
             };
@@ -121,12 +107,13 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     return;
                 };
                 project.transform.reset();
-                let _ = app_state.player.set_transform(0, false, false);
+                let _ = app_state.apply_project_preview();
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
             let transform = app.global::<TransformState>();
             transform.set_flip_horizontal(false);
             transform.set_flip_vertical(false);
+            transform.set_rotation_degrees(0);
         });
     }
 }

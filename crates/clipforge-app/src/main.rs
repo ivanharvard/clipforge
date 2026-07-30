@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use app_state::AppState;
-use slint::{ComponentHandle, Timer, TimerMode};
+use slint::{ComponentHandle, ModelRc, Timer, TimerMode, VecModel};
 
 slint::include_modules!();
 
@@ -21,6 +21,14 @@ fn sync_queue_state(app: &App, state: &AppState) {
     let queue = app.global::<QueueState>();
     let count = state.queue_len();
     let active = state.active_queue_index();
+    let items = (0..count)
+        .map(|index| QueueItem {
+            name: state.queue_item_name(index).unwrap_or_default().into(),
+            index: index as i32,
+            active: active == Some(index),
+        })
+        .collect::<Vec<_>>();
+    queue.set_items(ModelRc::new(VecModel::from(items)));
     queue.set_count(count as i32);
     queue.set_current_name(
         active
@@ -173,6 +181,18 @@ fn main() -> anyhow::Result<()> {
     {
         let app_weak = app.as_weak();
         let state = state.clone();
+        app.global::<QueueState>().on_select_clicked(move |index| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            if index >= 0 {
+                activate_and_apply_clip(&app, &state, index as usize);
+            }
+        });
+    }
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
         app.global::<QueueState>().on_previous_clicked(move || {
             let Some(app) = app_weak.upgrade() else {
                 return;
@@ -213,16 +233,9 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    let _ = app_state.player.set_transform(
-                        project.transform.rotation(),
-                        project.transform.flip_horizontal,
-                        project.transform.flip_vertical,
-                    );
-                    let _ = app_state
-                        .player
-                        .set_volume(project.audio.effective_volume() as f64 * 100.0);
                     bindings::sync_all_panels_from_project(&app, project);
                 }
+                let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);
             }
             bindings::sync_playback_state(&app, &state);
@@ -241,16 +254,9 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    let _ = app_state.player.set_transform(
-                        project.transform.rotation(),
-                        project.transform.flip_horizontal,
-                        project.transform.flip_vertical,
-                    );
-                    let _ = app_state
-                        .player
-                        .set_volume(project.audio.effective_volume() as f64 * 100.0);
                     bindings::sync_all_panels_from_project(&app, project);
                 }
+                let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);
             }
             bindings::sync_playback_state(&app, &state);

@@ -9,8 +9,19 @@ use crate::app_state::AppState;
 use crate::App;
 
 const PREVIEW_FPS: u64 = 30;
-const PREVIEW_WIDTH: u32 = 960;
-const PREVIEW_HEIGHT: u32 = 540;
+const MAX_PREVIEW_WIDTH: u32 = 1280;
+const MAX_PREVIEW_HEIGHT: u32 = 720;
+
+fn capped_dimensions(width: u32, height: u32) -> (u32, u32) {
+    let width = width.max(2);
+    let height = height.max(2);
+    let scale = (MAX_PREVIEW_WIDTH as f64 / width as f64)
+        .min(MAX_PREVIEW_HEIGHT as f64 / height as f64)
+        .min(1.0);
+    let output_width = ((width as f64 * scale).round() as u32).max(2) & !1;
+    let output_height = ((height as f64 * scale).round() as u32).max(2) & !1;
+    (output_width, output_height)
+}
 
 /// Starts a repeating timer that pulls the current mpv frame into the
 /// preview `Image`. The returned [`Timer`] must be kept alive for as long
@@ -19,6 +30,9 @@ pub fn start_preview_timer(app: &App, state: &Rc<RefCell<AppState>>) -> Timer {
     let app_weak = app.as_weak();
     let state = state.clone();
     let mut frame = FrameBuffer::default();
+    let mut observed_size = (0, 0);
+    let mut stable_ticks = 0u8;
+    let mut render_size = (960, 540);
 
     let timer = Timer::default();
     timer.start(
@@ -28,6 +42,19 @@ pub fn start_preview_timer(app: &App, state: &Rc<RefCell<AppState>>) -> Timer {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
+            let requested = capped_dimensions(
+                app.get_preview_viewport_width().max(2) as u32,
+                app.get_preview_viewport_height().max(2) as u32,
+            );
+            if requested == observed_size {
+                stable_ticks = stable_ticks.saturating_add(1);
+            } else {
+                observed_size = requested;
+                stable_ticks = 0;
+            }
+            if frame.rgba.is_empty() || stable_ticks >= 3 {
+                render_size = observed_size;
+            }
             {
                 let state_ref = state.borrow();
                 if state_ref.project.is_none() {
@@ -35,7 +62,7 @@ pub fn start_preview_timer(app: &App, state: &Rc<RefCell<AppState>>) -> Timer {
                 }
                 if state_ref
                     .render_ctx
-                    .render_frame(&mut frame, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+                    .render_frame(&mut frame, render_size.0, render_size.1)
                     .is_err()
                 {
                     return;

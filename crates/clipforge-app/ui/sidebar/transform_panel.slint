@@ -2,65 +2,60 @@ import { Theme } from "../theme.slint";
 import { TransformState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
 import { IconButton } from "../components/icon_button.slint";
-import { GroupLabel } from "../components/group_label.slint";
 
 export component TransformPanel inherits PanelSection {
     title: "Transform";
     icon: @image-url("../../icons/ui/rotate-cw.svg");
 
-    VerticalLayout {
-        spacing: Theme.space-1;
-
-        GroupLabel { text: "Rotate"; }
-
-        HorizontalLayout {
-            spacing: Theme.space-2;
-
-            IconButton {
-                icon: @image-url("../../icons/ui/rotate-ccw.svg");
-                accessible-label: "Rotate counter-clockwise";
-                clicked => { TransformState.rotate-counter-clockwise-clicked(); }
-            }
-
-            IconButton {
-                icon: @image-url("../../icons/ui/rotate-cw.svg");
-                accessible-label: "Rotate clockwise";
-                clicked => { TransformState.rotate-clockwise-clicked(); }
-            }
-
-            Rectangle {}
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        alignment: center;
+        Text { text: "Rotate"; color: Theme.text-secondary; font-size: Theme.text-xs; vertical-alignment: center; }
+        IconButton {
+            icon: @image-url("../../icons/ui/rotate-ccw.svg");
+            accessible-label: "Rotate counter-clockwise";
+            clicked => { TransformState.rotate-counter-clockwise-clicked(); }
         }
-    }
-
-    VerticalLayout {
-        spacing: Theme.space-1;
-
-        GroupLabel { text: "Flip"; }
-
-        HorizontalLayout {
-            spacing: Theme.space-2;
-
-            IconButton {
-                icon: @image-url("../../icons/ui/flip-horizontal-2.svg");
-                accessible-label: "Flip horizontally";
-                active: TransformState.flip-horizontal;
-                clicked => { TransformState.flip-horizontal-toggled(); }
+        Rectangle {
+            width: 54px;
+            height: 32px;
+            border-radius: Theme.radius-control;
+            border-width: 1px;
+            border-color: Theme.border-color;
+            background: Theme.surface-alt;
+            Text {
+                text: TransformState.rotation-degrees + "°";
+                color: Theme.text-primary;
+                font-size: Theme.text-sm;
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
-
-            IconButton {
-                icon: @image-url("../../icons/ui/flip-vertical-2.svg");
-                accessible-label: "Flip vertically";
-                active: TransformState.flip-vertical;
-                clicked => { TransformState.flip-vertical-toggled(); }
-            }
-
-            Rectangle {}
         }
+        IconButton {
+            icon: @image-url("../../icons/ui/rotate-cw.svg");
+            accessible-label: "Rotate clockwise";
+            clicked => { TransformState.rotate-clockwise-clicked(); }
+        }
+        Rectangle {}
     }
 
     HorizontalLayout {
-        alignment: end;
-
+        spacing: Theme.space-2;
+        alignment: center;
+        Text { text: "Flip"; color: Theme.text-secondary; font-size: Theme.text-xs; vertical-alignment: center; }
+        IconButton {
+            icon: @image-url("../../icons/ui/flip-horizontal-2.svg");
+            accessible-label: "Flip horizontally";
+            active: TransformState.flip-horizontal;
+            clicked => { TransformState.flip-horizontal-toggled(); }
+        }
+        IconButton {
+            icon: @image-url("../../icons/ui/flip-vertical-2.svg");
+            accessible-label: "Flip vertically";
+            active: TransformState.flip-vertical;
+            clicked => { TransformState.flip-vertical-toggled(); }
+        }
+        Rectangle {}
         IconButton {
             icon: @image-url("../../icons/ui/rotate-ccw.svg");
             accessible-label: "Reset transform";

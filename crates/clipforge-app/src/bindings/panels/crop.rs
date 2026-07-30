@@ -52,6 +52,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     project.crop.height,
                 )
             };
+            let _ = state.borrow().apply_project_preview();
             crop_global.set_x(x as i32);
             crop_global.set_y(y as i32);
             crop_global.set_width(width as i32);
@@ -102,6 +103,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 dims
             };
+            let _ = state.borrow().apply_project_preview();
             let crop = app.global::<CropState>();
             crop.set_x(0);
             crop.set_y(0);

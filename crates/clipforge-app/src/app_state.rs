@@ -102,6 +102,7 @@ impl AppState {
 
         let mut project = Project::new(path, width, height, bounds);
         project.source_frame_rate = frame_rate;
+        project.audio_tracks = info.audio;
         project.compress = self.settings.compression();
         self.queue.push(QueueItem::new(project));
         self.save_recovery_snapshot();
@@ -126,16 +127,23 @@ impl AppState {
         self.redo_stack = std::mem::take(&mut item.redo_stack);
         self.active_queue_index = Some(index);
 
-        if let Some(project) = &self.project {
-            self.player.set_transform(
-                project.transform.rotation(),
-                project.transform.flip_horizontal,
-                project.transform.flip_vertical,
-            )?;
-            self.player
-                .set_volume(project.audio.effective_volume() as f64 * 100.0)?;
-        }
+        self.apply_project_preview()?;
         self.save_recovery_snapshot();
+        Ok(())
+    }
+
+    pub fn apply_project_preview(&self) -> anyhow::Result<()> {
+        let Some(project) = &self.project else {
+            return Ok(());
+        };
+        let plan = clipforge_core::evaluate_pipeline(project);
+        self.player.set_video_filters(&plan.video_filters)?;
+        self.player
+            .set_volume(project.audio.effective_volume() as f64 * 100.0)?;
+        if !project.audio_tracks.is_empty() {
+            self.player
+                .set_track(project.audio.track_index.unwrap_or(0))?;
+        }
         Ok(())
     }
 

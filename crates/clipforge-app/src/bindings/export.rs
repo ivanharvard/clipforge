@@ -5,6 +5,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
+use clipforge_core::evaluate_pipeline;
 use clipforge_core::export::{spawn_export, ExportHandle, ExportJob};
 use clipforge_core::Project;
 use slint::ComponentHandle;
@@ -55,6 +56,7 @@ fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
         .queued_projects()
         .into_iter()
         .map(|project| {
+            let compression_enabled = evaluate_pipeline(&project).compression_enabled;
             let output_path = unique_output_path(&project, directory, &mut reserved);
             let duration_ms = project.clip_bounds.selected_duration().as_ms().max(1);
             let label = output_path
@@ -66,8 +68,12 @@ fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
                 job: ExportJob::from_project(&project, output_path),
                 duration_ms,
                 label,
-                target_size_bytes: project.compress.target_size_bytes(),
-                minimum_target_size_bytes: project.compress.minimum_target_size_bytes(),
+                target_size_bytes: compression_enabled
+                    .then(|| project.compress.target_size_bytes())
+                    .flatten(),
+                minimum_target_size_bytes: compression_enabled
+                    .then(|| project.compress.minimum_target_size_bytes())
+                    .flatten(),
             }
         })
         .collect()

@@ -75,8 +75,8 @@ impl SwRenderContext {
         width: u32,
         height: u32,
     ) -> PlayerResult<()> {
+        frame.prepare(width, height);
         let mut stride = width as usize * 4;
-        let mut buffer = vec![0u8; stride * height as usize];
         let mut size = [width as i32, height as i32];
 
         let mut params = [
@@ -94,7 +94,7 @@ impl SwRenderContext {
             },
             mpv_render_param {
                 type_: mpv_render_param_type_MPV_RENDER_PARAM_SW_POINTER,
-                data: buffer.as_mut_ptr() as *mut c_void,
+                data: frame.rgba.as_mut_ptr() as *mut c_void,
             },
             mpv_render_param {
                 type_: mpv_render_param_type_MPV_RENDER_PARAM_INVALID,
@@ -107,7 +107,7 @@ impl SwRenderContext {
             return Err(PlayerError::RenderContextMissing);
         }
 
-        frame.replace(width, height, buffer);
+        frame.mark_rendered();
         Ok(())
     }
 }

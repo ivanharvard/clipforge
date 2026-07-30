@@ -5,6 +5,9 @@ pub enum PlayerError {
 
     #[error("render context not initialized")]
     RenderContextMissing,
+
+    #[error("audio track ordinal {0} is unavailable")]
+    AudioTrackMissing(usize),
 }
 
 pub type PlayerResult<T> = Result<T, PlayerError>;

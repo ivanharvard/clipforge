@@ -1,6 +1,7 @@
 mod audio;
 mod compress;
 mod crop;
+mod pipeline;
 mod resolution;
 mod transform;
 
@@ -16,4 +17,5 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     resolution::wire(app, state);
     audio::wire(app, state);
     compress::wire(app, state);
+    pipeline::wire(app, state);
 }

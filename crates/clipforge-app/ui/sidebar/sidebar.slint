@@ -1,4 +1,5 @@
 import { Theme } from "../theme.slint";
+import { ToolPipelineState } from "../state.slint";
 import { ScrollView } from "std-widgets.slint";
 import { TransformPanel } from "transform_panel.slint";
 import { CropPanel } from "crop_panel.slint";
@@ -6,28 +7,38 @@ import { ResolutionPanel } from "resolution_panel.slint";
 import { AudioPanel } from "audio_panel.slint";
 import { CompressPanel } from "compress_panel.slint";
 
-// Fixed vertical stack of the 5 editing panels (DESIGN.md section 9).
-// Each panel is independently collapsible (see PanelSection); the stack
-// scrolls as a whole if expanded content is too tall for the window.
 export component Sidebar inherits Rectangle {
-    width: 300px;
+    width: 320px;
     background: Theme.surface;
 
     scroll := ScrollView {
         VerticalLayout {
-            // The vertical scrollbar overlays the flickable's content
-            // rather than reserving its own space, so pad the right side
-            // by its width (14px, per std-widgets' ScrollView) to keep
-            // panel content from rendering underneath it.
             width: scroll.visible-width;
             padding-right: 14px;
             spacing: 0px;
 
-            transform-panel := TransformPanel {}
-            crop-panel := CropPanel {}
-            resolution-panel := ResolutionPanel {}
-            audio-panel := AudioPanel {}
-            compress-panel := CompressPanel {}
+            for tool[index] in ToolPipelineState.items: VerticalLayout {
+                if tool.kind == "compress": CompressPanel {
+                    tool-position: index;
+                    tool-enabled: tool.enabled;
+                }
+                if tool.kind == "transform": TransformPanel {
+                    tool-position: index;
+                    tool-enabled: tool.enabled;
+                }
+                if tool.kind == "crop": CropPanel {
+                    tool-position: index;
+                    tool-enabled: tool.enabled;
+                }
+                if tool.kind == "resolution": ResolutionPanel {
+                    tool-position: index;
+                    tool-enabled: tool.enabled;
+                }
+                if tool.kind == "audio": AudioPanel {
+                    tool-position: index;
+                    tool-enabled: tool.enabled;
+                }
+            }
         }
     }
 }

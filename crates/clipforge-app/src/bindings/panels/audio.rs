@@ -50,10 +50,20 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     }
 
     {
+        let app_weak = app.as_weak();
         let state = state.clone();
         audio.on_track_selected(move |index| {
-            let app_state = state.borrow();
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            app_state.push_undo_snapshot();
+            let Some(project) = &mut app_state.project else {
+                return;
+            };
+            project.audio.track_index = Some(index.max(0) as usize);
             let _ = app_state.player.set_track(index.max(0) as usize);
+            crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
 

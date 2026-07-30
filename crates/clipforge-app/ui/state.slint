@@ -4,6 +4,17 @@
 // generated Rust `App` API directly, so anything Rust needs to read or
 // drive lives here instead, and the components below bind straight to it.
 
+export struct ToolItem {
+    kind: string,
+    enabled: bool,
+}
+
+export struct QueueItem {
+    name: string,
+    index: int,
+    active: bool,
+}
+
 export global PlaybackState {
     in-out property <string> current-time-text: "00:00:00.00";
     in-out property <string> duration-text: "00:00:00.00";
@@ -26,6 +37,7 @@ export global PlaybackState {
 }
 
 export global TransformState {
+    in-out property <int> rotation-degrees: 0;
     in-out property <bool> flip-horizontal: false;
     in-out property <bool> flip-vertical: false;
 
@@ -54,7 +66,7 @@ export global CropState {
 }
 
 export global ResolutionState {
-    in property <[string]> presets: ["Original", "1080p", "720p", "480p", "Custom"];
+    in property <[string]> presets: ["Keep current", "1080p", "720p", "480p", "Custom"];
     in-out property <int> preset-index: 0;
     in-out property <int> custom-width: 1920;
     in-out property <int> custom-height: 1080;
@@ -94,7 +106,20 @@ export global CompressState {
     callback apply-to-all-changed(bool);
 }
 
+export global ToolPipelineState {
+    in-out property <[ToolItem]> items: [
+        { kind: "compress", enabled: true },
+        { kind: "transform", enabled: true },
+        { kind: "crop", enabled: true },
+        { kind: "resolution", enabled: true },
+        { kind: "audio", enabled: true },
+    ];
+    callback toggle-requested(int, bool);
+    callback move-requested(int, int);
+}
+
 export global QueueState {
+    in-out property <[QueueItem]> items;
     in-out property <int> count: 0;
     in-out property <string> current-name: "";
     in-out property <string> previous-name: "";
@@ -105,6 +130,7 @@ export global QueueState {
 
     callback add-clicked();
     callback remove-clicked();
+    callback select-clicked(int);
     callback previous-clicked();
     callback next-clicked();
 }

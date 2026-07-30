@@ -3,13 +3,10 @@ import { Theme } from "../theme.slint";
 import { IconButton } from "icon_button.slint";
 
 export component TitleBar inherits Rectangle {
-    callback open-clip-clicked;
-    callback export-clicked;
     callback undo-clicked;
     callback redo-clicked;
     in property <bool> can-undo: false;
     in property <bool> can-redo: false;
-    in property <int> queue-count: 0;
 
     height: Theme.space-8 + Theme.space-6;
     background: Theme.bg;
@@ -21,11 +18,17 @@ export component TitleBar inherits Rectangle {
         padding-right: Theme.space-4;
         spacing: Theme.space-3;
 
-        Image {
-            source: @image-url("../../icons/src/app-icon.svg");
+        Rectangle {
             width: Theme.space-8;
             height: Theme.space-8;
-            image-fit: contain;
+            Image {
+                source: @image-url("../../icons/src/app-icon.svg");
+                width: 28px;
+                height: 28px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                image-fit: contain;
+            }
         }
 
         Text {
@@ -34,34 +37,6 @@ export component TitleBar inherits Rectangle {
             font-size: Theme.text-md;
             font-weight: 700;
             vertical-alignment: center;
-        }
-
-        Rectangle {
-            width: 1px;
-            height: Theme.space-6;
-            background: Theme.border-color;
-        }
-
-        open-button := Rectangle {
-            width: Theme.space-8 * 2 + Theme.space-6;
-            height: Theme.space-8;
-            border-radius: Theme.radius-control;
-            border-width: 1px;
-            border-color: Theme.border-color;
-            background: open-touch.has-hover ? Theme.surface-alt : Theme.surface;
-
-            Text {
-                text: "Add videos";
-                color: Theme.text-primary;
-                font-size: Theme.text-sm;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-
-            open-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.open-clip-clicked(); }
-            }
         }
 
         IconButton {
@@ -80,27 +55,5 @@ export component TitleBar inherits Rectangle {
 
         Rectangle {}
 
-        export-button := Rectangle {
-            width: Theme.space-8 * 3;
-            height: Theme.space-8;
-            border-radius: Theme.radius-control;
-            background: export-touch.has-hover ? Theme.accent-hover : Theme.accent;
-            opacity: root.queue-count > 0 ? 1 : 0.35;
-
-            Text {
-                text: root.queue-count > 1 ? "Export queue" : "Export video";
-                color: Theme.bg;
-                font-size: Theme.text-sm;
-                font-weight: 600;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-
-            export-touch := TouchArea {
-                enabled: root.queue-count > 0;
-                mouse-cursor: pointer;
-                clicked => { root.export-clicked(); }
-            }
-        }
     }
 }

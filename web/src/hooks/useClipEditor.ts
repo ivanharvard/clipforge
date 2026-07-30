@@ -118,7 +118,6 @@ export function useClipEditor() {
 
   useEffect(() => () => {
     releaseUrl();
-    for (const entry of entriesRef.current) entry.project?.free();
   }, [releaseUrl]);
 
   const addFiles = useCallback((files: File[]) => {

@@ -71,7 +71,7 @@
 .panel-title {
   height: 42px;
   margin: 0;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -80,13 +80,62 @@
   font-weight: 560;
 }
 
-.panel-title span {
+.panel.disabled .panel-title {
+  opacity: 0.68;
+}
+
+.tool-handle {
+  width: 20px;
+  height: 28px;
+  padding: 0;
   color: var(--text-secondary);
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.tool-handle:active { cursor: grabbing; }
+
+.tool-enable {
+  width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
 }
 
-.panel-title svg {
+.tool-enable input { margin: 0; accent-color: var(--accent); }
+
+.panel-disclosure {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.panel-disclosure > span:nth-child(2) { flex: 1; }
+
+.panel-disclosure > svg { width: 14px; height: 14px; color: var(--text-secondary); }
+
+.panel-icon {
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+
+.panel-icon svg {
   width: 16px;
   height: 16px;
 }
@@ -96,7 +145,22 @@
 }
 
 .control-group + .control-group {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.control-group {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.control-group .control-caption {
+  margin: 0;
+}
+
+.control-group .button-row {
+  min-width: 0;
 }
 
 .control-caption,
@@ -163,6 +227,18 @@
   color: var(--accent);
   border-color: rgb(240 121 28 / 40%);
   background: var(--accent-soft);
+}
+
+.icon-button:disabled,
+.transport-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.header-history {
+  width: 32px;
+  height: 32px;
+  background: transparent;
 }
 
 .icon-button svg,
@@ -281,13 +357,51 @@ select {
 
 .timeline {
   grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 34px auto 78px minmax(120px, 1fr) 78px auto;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+.timeline-transport-row {
+  display: grid;
+  grid-template-columns: 34px 82px minmax(120px, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.timeline-fields-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+}
+
+.timeline-time-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.timeline-time-field input {
+  width: 104px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-alt);
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.timeline-time-field.invalid input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px rgb(241 108 113 / 16%);
 }
 
 .timeline time {

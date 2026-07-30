@@ -2,6 +2,30 @@ export type ResolutionPreset = "original" | "1080p" | "720p" | "480p" | "custom"
 export type CompressionMode = "crf" | "bitrate" | "target-size";
 export type FrameRateLimit = "automatic" | "30" | "60";
 export type VideoCodec = "h264" | "av1";
+export type ToolKind = "compress" | "transform" | "crop" | "resolution" | "audio";
+
+export interface ToolStage {
+  kind: ToolKind;
+  enabled: boolean;
+}
+
+export interface AudioTrack {
+  index: number;
+  codec: string;
+  channels: number;
+  sampleRate: number;
+  language: string;
+  title: string;
+  isDefault: boolean;
+}
+
+export const defaultPipeline = (): ToolStage[] => [
+  { kind: "compress", enabled: true },
+  { kind: "transform", enabled: true },
+  { kind: "crop", enabled: true },
+  { kind: "resolution", enabled: true },
+  { kind: "audio", enabled: true },
+];
 
 export interface ClipSource {
   file: File;
@@ -32,6 +56,8 @@ export interface EditorSettings {
     volume: number;
     muted: boolean;
     normalize: boolean;
+    trackIndex: number;
+    tracks: AudioTrack[];
   };
   compression: {
     mode: CompressionMode;
@@ -45,6 +71,7 @@ export interface EditorSettings {
     inMs: number;
     outMs: number;
   };
+  pipeline: ToolStage[];
 }
 
 export type ExportPhase = "idle" | "loading" | "running" | "success" | "error";
@@ -67,7 +94,7 @@ export function defaultSettings(width: number, height: number, durationMs: numbe
       customHeight: height,
       aspectLocked: true,
     },
-    audio: { volume: 1, muted: false, normalize: false },
+    audio: { volume: 1, muted: false, normalize: false, trackIndex: 0, tracks: [] },
     compression: {
       mode: "target-size",
       value: 10,
@@ -77,5 +104,6 @@ export function defaultSettings(width: number, height: number, durationMs: numbe
       tolerancePercent: 25,
     },
     trim: { inMs: 0, outMs: durationMs },
+    pipeline: defaultPipeline(),
   };
 }

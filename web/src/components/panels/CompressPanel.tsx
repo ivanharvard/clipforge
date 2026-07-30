@@ -37,7 +37,7 @@ export function CompressPanel({ compression, applyToAll, onChange, onApplyToAllC
         <span>Codec</span>
         <select value={compression.codec} onChange={(event) => update({ codec: event.currentTarget.value as VideoCodec })}>
           <option value="h264">H.264</option>
-          <option value="av1" disabled>AV1 (desktop only)</option>
+          <option value="av1">AV1</option>
         </select>
       </label>
       <label className="check-control compact-top"><input type="checkbox" checked={compression.extraQuality} onChange={(event) => update({ extraQuality: event.currentTarget.checked })} />Extra quality (slower)</label>

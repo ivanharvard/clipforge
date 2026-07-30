@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent, type RefObject } from "react";
+import { useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 
 import type { ClipSource, EditorSettings } from "../types";
 import { fileSize } from "../lib/format";
@@ -13,9 +13,13 @@ interface VideoStageProps {
   onMetadata: (metadata: { durationMs: number; width: number; height: number }) => void;
   onClose: () => void;
   onTimeUpdate: (milliseconds: number) => void;
+  onCropChange: (crop: EditorSettings["crop"]) => void;
+  playbackStatus?: string;
 }
 
-export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFiles, onMetadata, onClose, onTimeUpdate }: VideoStageProps) {
+type CropHandle = "move" | "nw" | "ne" | "sw" | "se";
+
+export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFiles, onMetadata, onClose, onTimeUpdate, onCropChange, playbackStatus }: VideoStageProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const sourceUrl = clip?.url ?? pendingUrl;
@@ -49,15 +53,79 @@ export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFiles
   }
 
   const crop = settings?.crop;
+  const cropEnabled = settings?.pipeline.find((stage) => stage.kind === "crop")?.enabled ?? false;
+  const transformEnabled = settings?.pipeline.find((stage) => stage.kind === "transform")?.enabled ?? false;
   const cropStyle = crop && clip ? {
     left: `${(crop.x / clip.width) * 100}%`,
     top: `${(crop.y / clip.height) * 100}%`,
     width: `${(crop.width / clip.width) * 100}%`,
     height: `${(crop.height / clip.height) * 100}%`,
   } : undefined;
-  const transform = settings
+  const transform = settings && transformEnabled
     ? `rotate(${settings.rotation}deg) scale(${settings.flipHorizontal ? -1 : 1}, ${settings.flipVertical ? -1 : 1})`
     : undefined;
+
+  const startCropDrag = (event: PointerEvent<HTMLElement>, handle: CropHandle) => {
+    if (!crop || !clip) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initial = { ...crop };
+    const viewport = event.currentTarget.closest(".video-transform")?.getBoundingClientRect();
+    if (!viewport?.width || !viewport.height) return;
+    const scaleX = clip.width / viewport.width;
+    const scaleY = clip.height / viewport.height;
+
+    const move = (pointer: globalThis.PointerEvent) => {
+      const dx = Math.round((pointer.clientX - startX) * scaleX);
+      const dy = Math.round((pointer.clientY - startY) * scaleY);
+      let next = { ...initial };
+      if (handle === "move") {
+        next.x = Math.max(0, Math.min(clip.width - next.width, initial.x + dx));
+        next.y = Math.max(0, Math.min(clip.height - next.height, initial.y + dy));
+      } else {
+        const west = handle === "nw" || handle === "sw";
+        const north = handle === "nw" || handle === "ne";
+        const fixedX = west ? initial.x + initial.width : initial.x;
+        const fixedY = north ? initial.y + initial.height : initial.y;
+        const movingX = Math.max(0, Math.min(clip.width, west ? initial.x + dx : initial.x + initial.width + dx));
+        let movingY = Math.max(0, Math.min(clip.height, north ? initial.y + dy : initial.y + initial.height + dy));
+        if (initial.aspectLocked) {
+          const ratio = initial.width / initial.height;
+          const width = Math.max(2, Math.abs(fixedX - movingX));
+          movingY = fixedY + (north ? -1 : 1) * Math.round(width / ratio);
+          movingY = Math.max(0, Math.min(clip.height, movingY));
+        }
+        next.x = Math.min(fixedX, movingX);
+        next.y = Math.min(fixedY, movingY);
+        next.width = Math.max(2, Math.abs(fixedX - movingX));
+        next.height = Math.max(2, Math.abs(fixedY - movingY));
+      }
+      onCropChange(next);
+    };
+    const finish = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
+  const nudgeCrop = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!crop || !clip || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const amount = event.shiftKey ? 10 : 1;
+    const dx = event.key === "ArrowLeft" ? -amount : event.key === "ArrowRight" ? amount : 0;
+    const dy = event.key === "ArrowUp" ? -amount : event.key === "ArrowDown" ? amount : 0;
+    onCropChange({
+      ...crop,
+      x: Math.max(0, Math.min(clip.width - crop.width, crop.x + dx)),
+      y: Math.max(0, Math.min(clip.height - crop.height, crop.y + dy)),
+    });
+  };
 
   return (
     <section className="video-stage loaded">
@@ -81,7 +149,17 @@ export function VideoStage({ clip, pendingUrl, settings, videoRef, onChooseFiles
             }}
             onTimeUpdate={(event) => onTimeUpdate(Math.round(event.currentTarget.currentTime * 1000))}
           />
-          {cropStyle ? <div className="crop-guide" style={cropStyle}><span /><span /><span /><span /></div> : null}
+          {cropStyle && cropEnabled ? (
+            <div className="crop-guide" style={cropStyle} role="group" aria-label="Crop area; use arrow keys to move" tabIndex={0} onKeyDown={nudgeCrop} onPointerDown={(event) => startCropDrag(event, "move")}>
+              {(["nw", "ne", "sw", "se"] as CropHandle[]).map((handle) => (
+                <button key={handle} type="button" className={`crop-handle ${handle}`} aria-label={`Resize crop from ${handle}`} onPointerDown={(event) => {
+                  event.stopPropagation();
+                  startCropDrag(event, handle);
+                }} />
+              ))}
+            </div>
+          ) : null}
+          {playbackStatus ? <div className="video-preparing" role="status">{playbackStatus}</div> : null}
         </div>
       </div>
     </section>

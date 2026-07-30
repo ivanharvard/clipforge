@@ -4,6 +4,8 @@
 /web/node_modules/
 /web/src/generated/
 /web/.vite/
+/web/test-results/
+/web/playwright-report/
 **/*.rs.bk
 *.pdb
 .DS_Store

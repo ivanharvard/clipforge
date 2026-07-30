@@ -187,7 +187,7 @@
 }
 
 .editor-shell.has-clip {
-  grid-template-rows: minmax(500px, calc(100vh - 266px)) 76px;
+  grid-template-rows: minmax(460px, calc(100vh - 294px)) 104px;
 }
 
 .video-stage {
@@ -309,25 +309,39 @@
   object-fit: contain;
 }
 
+.video-preparing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: rgb(0 0 0 / 68%);
+  font-size: 12px;
+  z-index: 6;
+}
+
 .crop-guide {
   position: absolute;
   border: 1px solid var(--accent);
   box-shadow: 0 0 0 9999px rgb(0 0 0 / 50%);
-  pointer-events: none;
+  cursor: move;
+  touch-action: none;
 }
 
-.crop-guide span {
+.crop-handle {
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
+  padding: 0;
   background: var(--accent);
-  border: 1px solid #000;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 6px transparent;
 }
 
-.crop-guide span:nth-child(1) { left: -4px; top: -4px; }
-.crop-guide span:nth-child(2) { right: -4px; top: -4px; }
-.crop-guide span:nth-child(3) { left: -4px; bottom: -4px; }
-.crop-guide span:nth-child(4) { right: -4px; bottom: -4px; }
+.crop-handle.nw { left: -6px; top: -6px; cursor: nwse-resize; }
+.crop-handle.ne { right: -6px; top: -6px; cursor: nesw-resize; }
+.crop-handle.sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.crop-handle.se { right: -6px; bottom: -6px; cursor: nwse-resize; }
 
 .settings-sidebar,
 .intro-sidebar {

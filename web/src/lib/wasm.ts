@@ -1,5 +1,6 @@
 import init, {
   ClipForgeProject,
+  parse_probe_output,
 } from "../generated/clipforge-wasm/clipforge_web_bindings";
 
 let initialization: Promise<unknown> | undefined;
@@ -9,4 +10,4 @@ export function initializeBindings(): Promise<unknown> {
   return initialization;
 }
 
-export { ClipForgeProject };
+export { ClipForgeProject, parse_probe_output };

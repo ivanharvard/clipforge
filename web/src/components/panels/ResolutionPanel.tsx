@@ -15,7 +15,7 @@ export function ResolutionPanel({ resolution, onChange }: ResolutionPanelProps) 
       <label className="select-field">
         <span>Output size</span>
         <select value={resolution.preset} onChange={(event) => update({ preset: event.currentTarget.value as ResolutionPreset })}>
-          <option value="original">Original</option>
+          <option value="original">Keep current</option>
           <option value="1080p">1080p</option>
           <option value="720p">720p</option>
           <option value="480p">480p</option>

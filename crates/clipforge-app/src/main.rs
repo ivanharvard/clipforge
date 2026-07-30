@@ -120,9 +120,10 @@ fn main() -> anyhow::Result<()> {
         .skip(1)
         .map(PathBuf::from)
         .collect::<Vec<_>>();
+    let recovered_index = state.borrow().active_queue_index();
     if !startup_paths.is_empty() {
         enqueue_and_activate(&app, &state, startup_paths);
-    } else if let Some(index) = state.borrow().active_queue_index() {
+    } else if let Some(index) = recovered_index {
         activate_and_apply_clip(&app, &state, index);
     } else {
         sync_queue_state(&app, &state.borrow());

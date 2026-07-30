@@ -189,6 +189,28 @@ pub fn evaluate_pipeline(project: &Project) -> ExportPlan {
     }
 }
 
+/// Evaluates only the stages that feed `stop_before`. This is used by crop
+/// overlays so their coordinates describe the frame entering Crop rather
+/// than an already-cropped or subsequently resized preview.
+pub fn evaluate_pipeline_before(project: &Project, stop_before: ToolKind) -> ExportPlan {
+    let mut preview = project.clone();
+    let mut reached_stop = false;
+    preview.pipeline = project
+        .effective_pipeline()
+        .into_iter()
+        .map(|mut stage| {
+            if stage.kind == stop_before {
+                reached_stop = true;
+            }
+            if reached_stop {
+                stage.enabled = false;
+            }
+            stage
+        })
+        .collect();
+    evaluate_pipeline(&preview)
+}
+
 fn automatic_dimensions(
     project: &Project,
     width: u32,
@@ -304,5 +326,36 @@ mod tests {
         let plan = evaluate_pipeline(&project);
         assert_eq!(plan.output_height, 360);
         assert!(!plan.warnings.is_empty());
+    }
+
+    #[test]
+    fn automatic_resolution_never_upscales_small_sources() {
+        let mut project = Project::new(
+            PathBuf::from("small.mp4"),
+            640,
+            360,
+            ClipBounds::full_range(Timestamp::from_ms(60_000)),
+        );
+        project.source_frame_rate = 30.0;
+        project.compress.mode = QualityMode::TargetSizeMb(100.0);
+        let plan = evaluate_pipeline(&project);
+        assert_eq!((plan.output_width, plan.output_height), (640, 360));
+    }
+
+    #[test]
+    fn crop_input_preview_omits_crop_and_later_stages() {
+        let mut project = project();
+        project.transform.rotate_clockwise();
+        project.crop.x = 10;
+        project.crop.width = 1000;
+        let plan = evaluate_pipeline_before(&project, ToolKind::Crop);
+        assert!(plan
+            .video_filters
+            .iter()
+            .any(|filter| filter.contains("transpose")));
+        assert!(!plan
+            .video_filters
+            .iter()
+            .any(|filter| filter.contains("crop")));
     }
 }

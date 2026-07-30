@@ -147,6 +147,16 @@ impl AppState {
         Ok(())
     }
 
+    pub fn apply_crop_input_preview(&self) -> anyhow::Result<()> {
+        let Some(project) = &self.project else {
+            return Ok(());
+        };
+        let plan =
+            clipforge_core::evaluate_pipeline_before(project, clipforge_core::ToolKind::Crop);
+        self.player.set_video_filters(&plan.video_filters)?;
+        Ok(())
+    }
+
     pub fn remove_active_queue_item(&mut self) -> anyhow::Result<Option<usize>> {
         let Some(index) = self.active_queue_index else {
             return Ok(None);

@@ -1,0 +1,40 @@
+name: Windows package
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/clipforge-app/**"
+      - "crates/clipforge-player/**"
+      - "packaging/windows/**"
+      - "scripts/build-msi.ps1"
+      - ".github/workflows/windows.yml"
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build libmpv with vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install mpv:x64-windows
+          New-Item -ItemType Directory -Force C:\libmpv | Out-Null
+          $installed = Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\x64-windows"
+          $library = Get-ChildItem "$installed\lib" -Filter "*mpv*.lib" | Select-Object -First 1
+          $runtime = Get-ChildItem "$installed\bin" -Filter "*mpv*.dll" | Select-Object -First 1
+          if (-not $library -or -not $runtime) { throw "vcpkg did not produce libmpv artifacts" }
+          Copy-Item $library.FullName C:\libmpv\mpv.lib
+          Copy-Item $runtime.FullName C:\libmpv\libmpv-2.dll
+
+      - name: Build MSI and validate Windows layout resources
+        shell: pwsh
+        run: .\scripts\build-msi.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClipForge-Windows-MSI
+          path: dist/ClipForge.msi

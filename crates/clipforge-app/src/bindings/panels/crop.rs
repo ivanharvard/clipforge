@@ -52,7 +52,12 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     project.crop.height,
                 )
             };
-            let _ = state.borrow().apply_project_preview();
+            let app_state = state.borrow();
+            let _ = if crop_global.get_tool_active() {
+                app_state.apply_crop_input_preview()
+            } else {
+                app_state.apply_project_preview()
+            };
             crop_global.set_x(x as i32);
             crop_global.set_y(y as i32);
             crop_global.set_width(width as i32);
@@ -110,6 +115,18 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             crop.set_width(width as i32);
             crop.set_height(height as i32);
             crop.set_aspect_locked(false);
+        });
+    }
+
+    {
+        let state = state.clone();
+        crop.on_tool_active_changed(move |active| {
+            let app_state = state.borrow();
+            let _ = if active {
+                app_state.apply_crop_input_preview()
+            } else {
+                app_state.apply_project_preview()
+            };
         });
     }
 }

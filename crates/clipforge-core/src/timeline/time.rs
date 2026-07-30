@@ -40,7 +40,14 @@ impl Timestamp {
     /// [`Timestamp`]. Returns `None` on malformed input.
     pub fn parse_hhmmss(input: &str) -> Option<Timestamp> {
         let (whole, centis) = match input.split_once('.') {
-            Some((w, c)) => (w, c),
+            Some((w, c))
+                if !c.is_empty()
+                    && c.len() <= 2
+                    && c.chars().all(|value| value.is_ascii_digit()) =>
+            {
+                (w, c)
+            }
+            Some(_) => return None,
             None => (input, "0"),
         };
         let centis: u64 = format!("{centis:0<2}")
@@ -57,6 +64,9 @@ impl Timestamp {
             [s] => (0, 0, s.parse().ok()?),
             _ => return None,
         };
+        if minutes >= 60 || seconds >= 60 {
+            return None;
+        }
 
         let total_ms = ((hours * 3600 + minutes * 60 + seconds) * 1000) + centis * 10;
         Some(Timestamp(total_ms))
@@ -99,5 +109,13 @@ mod tests {
             Timestamp::parse_hhmmss("01:04.20"),
             Some(Timestamp::from_ms(64_200))
         );
+    }
+
+    #[test]
+    fn rejects_invalid_fields_and_excess_precision() {
+        assert_eq!(Timestamp::parse_hhmmss("00:60:00"), None);
+        assert_eq!(Timestamp::parse_hhmmss("00:00:60"), None);
+        assert_eq!(Timestamp::parse_hhmmss("00:00:01.123"), None);
+        assert_eq!(Timestamp::parse_hhmmss("00:00:01."), None);
     }
 }

@@ -97,3 +97,29 @@ impl Project {
         self.pipeline.insert(destination, stage);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::timeline::Timestamp;
+
+    #[test]
+    fn legacy_projects_receive_pipeline_and_media_defaults() {
+        let project = Project::new(
+            PathBuf::from("old.mp4"),
+            1280,
+            720,
+            ClipBounds::full_range(Timestamp::from_ms(1_000)),
+        );
+        let mut value = serde_json::to_value(project).unwrap();
+        let object = value.as_object_mut().unwrap();
+        object.remove("pipeline");
+        object.remove("audio_tracks");
+        object.remove("source_frame_rate");
+
+        let restored: Project = serde_json::from_value(value).unwrap();
+        assert_eq!(restored.pipeline, default_tool_pipeline());
+        assert!(restored.audio_tracks.is_empty());
+        assert_eq!(restored.source_frame_rate, 0.0);
+    }
+}

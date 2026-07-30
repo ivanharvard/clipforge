@@ -10,5 +10,5 @@ pub mod timeline;
 mod process;
 
 pub use error::{CoreError, CoreResult};
-pub use pipeline::{evaluate_pipeline, ExportPlan, ToolKind, ToolStage};
+pub use pipeline::{evaluate_pipeline, evaluate_pipeline_before, ExportPlan, ToolKind, ToolStage};
 pub use project::Project;

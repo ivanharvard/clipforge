@@ -180,6 +180,11 @@ impl WebProject {
     pub fn set_media_info_json(&mut self, json: &str) -> Result<(), JsError> {
         let info: clipforge_core::media::MediaInfo =
             serde_json::from_str(json).map_err(|error| js_error("invalid media info", error))?;
+        if let Some(video) = info.video {
+            self.inner.source_width = video.width.max(1);
+            self.inner.source_height = video.height.max(1);
+            self.inner.source_frame_rate = video.frame_rate;
+        }
         self.inner.audio_tracks = info.audio;
         if self.inner.audio.track_index.is_none() {
             self.inner.audio.track_index = self

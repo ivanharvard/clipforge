@@ -95,7 +95,10 @@ export component CropPanel inherits PanelSection {
             icon: @image-url("../../icons/ui/scan.svg");
             accessible-label: "Toggle crop tool";
             active: CropState.tool-active;
-            clicked => { CropState.tool-active = !CropState.tool-active; }
+            clicked => {
+                CropState.tool-active = !CropState.tool-active;
+                CropState.tool-active-changed(CropState.tool-active);
+            }
         }
 
         IconButton {

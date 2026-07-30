@@ -75,11 +75,21 @@ export interface EditorSettings {
 }
 
 export type ExportPhase = "idle" | "loading" | "running" | "success" | "error";
+export type ExportItemPhase = "pending" | "loading" | "running" | "success" | "error";
+
+export interface ExportItemStatus {
+  id: number;
+  name: string;
+  thumbnailUrl: string;
+  phase: ExportItemPhase;
+  progress: number;
+  message: string;
+}
 
 export interface ExportStatus {
   phase: ExportPhase;
-  progress: number;
   message: string;
+  items: ExportItemStatus[];
 }
 
 export function defaultSettings(width: number, height: number, durationMs: number): EditorSettings {

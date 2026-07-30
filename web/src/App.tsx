@@ -10,9 +10,13 @@ import { useClipEditor } from "./hooks/useClipEditor";
 import { initializeBindings } from "./lib/wasm";
 import { audioNeedsResync } from "./media/audioSync";
 import { cancelExport, exportVideo, prepareAudioPreview, probeMedia } from "./media/exportVideo";
-import type { ExportStatus } from "./types";
+import type { ExportItemStatus, ExportStatus } from "./types";
 
-const idleExport: ExportStatus = { phase: "idle", progress: 0, message: "" };
+const idleExport: ExportStatus = { phase: "idle", message: "", items: [] };
+
+function updateExportItem(items: ExportItemStatus[], index: number, update: Partial<ExportItemStatus>) {
+  return items.map((item, itemIndex) => itemIndex === index ? { ...item, ...update } : item);
+}
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -137,34 +141,96 @@ export function App() {
   const startExport = async () => {
     if (editor.queue.length === 0) return;
     exportCancelledRef.current = false;
-    setExportStatus({ phase: "loading", progress: 0, message: "Preparing the video queue…" });
+    setExportStatus({
+      phase: "loading",
+      message: "Preparing the video queue…",
+      items: editor.queue.map((item) => ({
+        id: item.id,
+        name: item.name,
+        thumbnailUrl: item.thumbnailUrl,
+        phase: "pending",
+        progress: 0,
+        message: "Waiting",
+      })),
+    });
+    let activeExportIndex = -1;
     try {
       const jobs = await editor.prepareQueue();
+      if (exportCancelledRef.current) return;
+      setExportStatus((current) => ({
+        ...current,
+        items: jobs.map((job) => ({
+          id: job.id,
+          name: job.file.name,
+          thumbnailUrl: job.thumbnailUrl,
+          phase: "pending",
+          progress: 0,
+          message: "Waiting",
+        })),
+      }));
       for (let index = 0; index < jobs.length; index += 1) {
+        if (exportCancelledRef.current) return;
         const job = jobs[index];
+        activeExportIndex = index;
+        setExportStatus((current) => ({
+          ...current,
+          items: updateExportItem(current.items, index, {
+            phase: "loading",
+            message: "Preparing",
+          }),
+        }));
         await exportVideo(job.file, job.project, {
           onPhase: (message) => {
             if (!exportCancelledRef.current) {
               setExportStatus((current) => ({
                 ...current,
                 phase: message.startsWith("Loading") ? "loading" : "running",
-                message: `${job.file.name} · ${index + 1} of ${jobs.length} · ${message}`,
+                message: `Exporting ${index + 1} of ${jobs.length}`,
+                items: updateExportItem(current.items, index, {
+                  phase: message.startsWith("Loading") ? "loading" : "running",
+                  message,
+                }),
               }));
             }
           },
           onProgress: (progress) => {
             if (!exportCancelledRef.current) {
-              setExportStatus((current) => ({ ...current, progress: (index + progress) / jobs.length }));
+              setExportStatus((current) => ({
+                ...current,
+                items: updateExportItem(current.items, index, { progress }),
+              }));
             }
           },
         });
+        if (exportCancelledRef.current) return;
+        setExportStatus((current) => ({
+          ...current,
+          items: updateExportItem(current.items, index, {
+            phase: "success",
+            progress: 1,
+            message: "Saved to downloads",
+          }),
+        }));
       }
       if (!exportCancelledRef.current) {
-        setExportStatus({ phase: "success", progress: 1, message: jobs.length === 1 ? "Your video was saved to downloads." : `${jobs.length} videos were saved to downloads.` });
+        setExportStatus((current) => ({
+          ...current,
+          phase: "success",
+          message: jobs.length === 1 ? "Your video was saved to downloads." : `${jobs.length} videos were saved to downloads.`,
+        }));
       }
     } catch (error) {
       if (exportCancelledRef.current) return;
-      setExportStatus({ phase: "error", progress: 0, message: errorMessage(error) });
+      const message = errorMessage(error);
+      setExportStatus((current) => ({
+        ...current,
+        phase: "error",
+        message,
+        items: activeExportIndex < 0 ? current.items : updateExportItem(current.items, activeExportIndex, {
+          phase: "error",
+          message,
+        }),
+      }));
     }
   };
 

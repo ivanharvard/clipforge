@@ -6,6 +6,14 @@ import { Icon } from "./Icon";
 
 const SLOW_EXPORT_DELAY_MS = 10_000;
 
+const itemPhaseLabel = {
+  pending: "Waiting",
+  loading: "Preparing",
+  running: "Exporting",
+  success: "Saved",
+  error: "Failed",
+} as const;
+
 interface ExportDialogProps {
   status: ExportStatus;
   onClose: () => void;
@@ -34,10 +42,26 @@ export function ExportDialog({ status, onClose, onCancel }: ExportDialogProps) {
         <div className={`dialog-status ${status.phase}`}>
           {status.phase === "success" ? <Icon name="check" /> : status.phase === "error" ? <Icon name="x" /> : <Icon name="archive" />}
         </div>
-        <h2 id="export-title">{status.phase === "success" ? "Export complete" : status.phase === "error" ? "Export failed" : "Exporting clip"}</h2>
+        <h2 id="export-title">{status.phase === "success" ? "Export complete" : status.phase === "error" ? "Export failed" : status.items.length > 1 ? "Exporting videos" : "Exporting clip"}</h2>
         <p>{status.message}</p>
-        <div className="progress-track" aria-label="Export progress" aria-valuenow={Math.round(status.progress * 100)} role="progressbar">
-          <span style={{ width: `${status.progress * 100}%` }} />
+        <div className="export-items">
+          {status.items.map((item) => (
+            <article className={`export-item ${item.phase}`} key={item.id}>
+              <div className="export-thumbnail">
+                {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt="" /> : <Icon name="file" />}
+              </div>
+              <div className="export-item-details">
+                <div className="export-item-heading">
+                  <strong title={item.name}>{item.name}</strong>
+                  <span>{itemPhaseLabel[item.phase]}</span>
+                </div>
+                <div className="progress-track" aria-label={`Export progress for ${item.name}`} aria-valuenow={Math.round(item.progress * 100)} role="progressbar">
+                  <span style={{ width: `${item.progress * 100}%` }} />
+                </div>
+                <small>{item.message}</small>
+              </div>
+            </article>
+          ))}
         </div>
         {running && showDesktopPrompt ? (
           <aside className="slow-export-prompt" aria-label="Faster desktop export">

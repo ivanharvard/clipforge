@@ -1,3 +1,105 @@
+.export-dialog {
+  width: min(560px, 100%);
+}
+
+.export-items {
+  max-height: min(42vh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  text-align: left;
+  scrollbar-width: thin;
+}
+
+.export-item {
+  min-width: 0;
+  padding: var(--space-2);
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-alt);
+}
+
+.export-item.running {
+  border-color: rgb(240 121 28 / 45%);
+}
+
+.export-item.success {
+  border-color: rgb(76 203 132 / 28%);
+}
+
+.export-item.error {
+  border-color: rgb(241 108 113 / 35%);
+}
+
+.export-thumbnail {
+  height: 50px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  background: #080808;
+}
+
+.export-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.export-thumbnail svg {
+  width: 20px;
+  height: 20px;
+}
+
+.export-item-details {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.export-item-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.export-item-heading strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-item-heading span,
+.export-item small {
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.export-item.success .export-item-heading span {
+  color: var(--success);
+}
+
+.export-item.error .export-item-heading span {
+  color: var(--danger);
+}
+
+.export-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .slow-export-prompt {
   margin-top: var(--space-4);
   padding: var(--space-4);

@@ -3,17 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ClipForgeProject } from "../lib/wasm";
 import { movePipelineStage, togglePipelineStage, updateQueueEntry } from "../lib/pipeline";
 import { revokeAudioPreviews } from "../media/exportVideo";
+import { createThumbnail, readMetadata, type MediaMetadata } from "../media/sourcePreview";
 import { defaultSettings, type AudioTrack, type ClipSource, type EditorSettings, type ToolKind } from "../types";
-
-interface MediaMetadata {
-  durationMs: number;
-  width: number;
-  height: number;
-}
 
 interface QueueEntry {
   id: number;
   file: File;
+  thumbnailUrl: string | null;
   metadata: MediaMetadata | null;
   project: ClipForgeProject | null;
   settings: EditorSettings | null;
@@ -29,8 +25,10 @@ interface EditorSnapshot {
 }
 
 export interface PreparedClip {
+  id: number;
   file: File;
   project: ClipForgeProject;
+  thumbnailUrl: string;
 }
 
 let nextQueueId = 1;
@@ -44,36 +42,6 @@ function applyCompression(project: ClipForgeProject, compression: EditorSettings
     compression.extraQuality,
     compression.tolerancePercent,
   );
-}
-
-function readMetadata(file: File): Promise<MediaMetadata> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    const url = URL.createObjectURL(file);
-    const release = () => {
-      video.removeAttribute("src");
-      URL.revokeObjectURL(url);
-    };
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      const metadata = {
-        durationMs: Math.round(video.duration * 1000),
-        width: video.videoWidth,
-        height: video.videoHeight,
-      };
-      release();
-      if (metadata.durationMs > 0 && metadata.width > 0 && metadata.height > 0) {
-        resolve(metadata);
-      } else {
-        reject(new Error(`Could not read video metadata for ${file.name}`));
-      }
-    };
-    video.onerror = () => {
-      release();
-      reject(new Error(`This browser cannot read ${file.name}`));
-    };
-    video.src = url;
-  });
 }
 
 export function useClipEditor() {
@@ -125,6 +93,7 @@ export function useClipEditor() {
     const additions = files.map((file) => ({
       id: nextQueueId++,
       file,
+      thumbnailUrl: null,
       metadata: null,
       project: null,
       settings: null,
@@ -348,9 +317,20 @@ export function useClipEditor() {
       applyCompression(project, settings.compression);
       next[index] = { ...entry, metadata, project, settings };
     }
+    const thumbnails = await Promise.all(
+      next.map((entry) => entry.thumbnailUrl ?? createThumbnail(entry.file)),
+    );
+    for (let index = 0; index < next.length; index += 1) {
+      next[index] = { ...next[index], thumbnailUrl: thumbnails[index] };
+    }
     commitEntries(next);
     projectRef.current = next[activeIndexRef.current]?.project ?? null;
-    return next.map((entry) => ({ file: entry.file, project: entry.project! }));
+    return next.map((entry) => ({
+      id: entry.id,
+      file: entry.file,
+      project: entry.project!,
+      thumbnailUrl: entry.thumbnailUrl ?? "",
+    }));
   }, [commitEntries]);
 
   const active = entries[activeIndex];
@@ -362,7 +342,12 @@ export function useClipEditor() {
     clip,
     pendingUrl: active && !active.metadata ? sourceUrl : null,
     settings: active?.settings ?? null,
-    queue: entries.map((entry) => ({ id: entry.id, name: entry.file.name, ready: entry.project !== null })),
+    queue: entries.map((entry) => ({
+      id: entry.id,
+      name: entry.file.name,
+      ready: entry.project !== null,
+      thumbnailUrl: entry.thumbnailUrl ?? "",
+    })),
     activeIndex,
     compressionApplyAll,
     canUndo: Boolean(active?.undo.length),

@@ -6,7 +6,7 @@ export function Header() {
   return (
     <header className="app-header">
       <a className="brand" href="#top" aria-label="ClipForge home">
-        <span className="brand-mark"><img src="/app-icon.svg" alt="" /></span>
+        <span className="brand-mark"><img src={`${import.meta.env.BASE_URL}app-icon.svg`} alt="" /></span>
         <span>ClipForge</span>
         <span className="web-label">Web</span>
       </a>

@@ -37,6 +37,17 @@ impl ToolKind {
 pub struct ToolStage {
     pub kind: ToolKind,
     pub enabled: bool,
+    /// Whether the panel's disclosure is open in the sidebar. Persisted here
+    /// (rather than as local UI state in the Slint component) because the
+    /// pipeline model is rebuilt wholesale on every toggle/move/undo — a
+    /// component-local `expanded` property would reset to its default the
+    /// moment the tool it belongs to shifts index.
+    #[serde(default = "default_expanded")]
+    pub expanded: bool,
+}
+
+fn default_expanded() -> bool {
+    true
 }
 
 pub fn default_tool_pipeline() -> Vec<ToolStage> {
@@ -45,6 +56,7 @@ pub fn default_tool_pipeline() -> Vec<ToolStage> {
         .map(|kind| ToolStage {
             kind,
             enabled: true,
+            expanded: kind == ToolKind::Compress,
         })
         .collect()
 }

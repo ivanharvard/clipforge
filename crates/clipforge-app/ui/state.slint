@@ -7,6 +7,7 @@
 export struct ToolItem {
     kind: string,
     enabled: bool,
+    expanded: bool,
 }
 
 export struct QueueItem {
@@ -109,14 +110,15 @@ export global CompressState {
 
 export global ToolPipelineState {
     in-out property <[ToolItem]> items: [
-        { kind: "compress", enabled: true },
-        { kind: "transform", enabled: true },
-        { kind: "crop", enabled: true },
-        { kind: "resolution", enabled: true },
-        { kind: "audio", enabled: true },
+        { kind: "compress", enabled: true, expanded: true },
+        { kind: "transform", enabled: true, expanded: false },
+        { kind: "crop", enabled: true, expanded: false },
+        { kind: "resolution", enabled: true, expanded: false },
+        { kind: "audio", enabled: true, expanded: false },
     ];
     callback toggle-requested(int, bool);
     callback move-requested(int, int);
+    callback expand-toggle-requested(int, bool);
 }
 
 export global QueueState {

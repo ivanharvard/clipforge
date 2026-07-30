@@ -74,6 +74,7 @@ impl Project {
                 stages.push(ToolStage {
                     kind,
                     enabled: true,
+                    expanded: kind == ToolKind::Compress,
                 });
             }
         }
@@ -84,6 +85,13 @@ impl Project {
         self.pipeline = self.effective_pipeline();
         if let Some(stage) = self.pipeline.iter_mut().find(|stage| stage.kind == kind) {
             stage.enabled = enabled;
+        }
+    }
+
+    pub fn set_tool_expanded(&mut self, kind: ToolKind, expanded: bool) {
+        self.pipeline = self.effective_pipeline();
+        if let Some(stage) = self.pipeline.iter_mut().find(|stage| stage.kind == kind) {
+            stage.expanded = expanded;
         }
     }
 

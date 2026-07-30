@@ -63,4 +63,25 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
+
+    {
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        // Disclosure open/close is cosmetic — no undo snapshot, no preview
+        // re-render, just persist it alongside the pipeline so it survives
+        // the next wholesale rebuild of `items` (toggle/move/undo all cause one).
+        pipeline.on_expand_toggle_requested(move |index, expanded| {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            let mut app_state = state.borrow_mut();
+            let Some(kind) = kind_at(&app_state, index) else {
+                return;
+            };
+            if let Some(project) = &mut app_state.project {
+                project.set_tool_expanded(kind, expanded);
+                crate::bindings::sync_all_panels_from_project(&app, project);
+            }
+        });
+    }
 }

@@ -21,22 +21,32 @@ export component Sidebar inherits Rectangle {
                 if tool.kind == "compress": CompressPanel {
                     tool-position: index;
                     tool-enabled: tool.enabled;
+                    tool-expanded: tool.expanded;
+                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
                 }
                 if tool.kind == "transform": TransformPanel {
                     tool-position: index;
                     tool-enabled: tool.enabled;
+                    tool-expanded: tool.expanded;
+                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
                 }
                 if tool.kind == "crop": CropPanel {
                     tool-position: index;
                     tool-enabled: tool.enabled;
+                    tool-expanded: tool.expanded;
+                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
                 }
                 if tool.kind == "resolution": ResolutionPanel {
                     tool-position: index;
                     tool-enabled: tool.enabled;
+                    tool-expanded: tool.expanded;
+                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
                 }
                 if tool.kind == "audio": AudioPanel {
                     tool-position: index;
                     tool-enabled: tool.enabled;
+                    tool-expanded: tool.expanded;
+                    expand-toggled(value) => { ToolPipelineState.expand-toggle-requested(index, value); }
                 }
             }
         }

@@ -18,13 +18,19 @@ component TextButton inherits Rectangle {
         : (touch.has-hover ? Theme.surface-alt : Theme.surface);
     opacity: root.is-enabled ? 1 : 0.45;
 
-    Text {
-        text: root.label;
-        color: root.primary ? Theme.bg : Theme.text-primary;
-        font-size: Theme.text-sm;
-        font-weight: 600;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    HorizontalLayout {
+        padding-left: Theme.space-4;
+        padding-right: Theme.space-4;
+        alignment: center;
+
+        Text {
+            text: root.label;
+            color: root.primary ? Theme.bg : Theme.text-primary;
+            font-size: Theme.text-sm;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
 
     touch := TouchArea {
@@ -53,11 +59,15 @@ component QueueCard inherits Rectangle {
         padding-right: Theme.space-3;
         spacing: Theme.space-2;
 
-        Rectangle {
-            width: 7px;
-            height: 7px;
-            border-radius: 4px;
-            background: root.active ? Theme.accent : Theme.text-secondary;
+        VerticalLayout {
+            alignment: center;
+
+            Rectangle {
+                width: 7px;
+                height: 7px;
+                border-radius: 4px;
+                background: root.active ? Theme.accent : Theme.text-secondary;
+            }
         }
 
         VerticalLayout {

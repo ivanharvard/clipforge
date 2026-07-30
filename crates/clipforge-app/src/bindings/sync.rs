@@ -96,6 +96,7 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
         .map(|stage| ToolItem {
             kind: stage.kind.as_str().into(),
             enabled: stage.enabled,
+            expanded: stage.expanded,
         })
         .collect::<Vec<_>>();
     app.global::<ToolPipelineState>()

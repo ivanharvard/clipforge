@@ -5,6 +5,7 @@ import { App } from "./App";
 import "./styles/theme.css";
 import "./styles/app.css";
 import "./styles/controls.css";
+import "./styles/export.css";
 import "./styles/responsive.css";
 
 const root = document.getElementById("root");

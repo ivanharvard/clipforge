@@ -12,6 +12,7 @@ setup: ## Check that required tools are installed (does not install anything)
 	command -v cargo >/dev/null 2>&1 || { echo "missing: cargo/rustc — install via https://rustup.rs"; ok=0; }; \
 	command -v ffmpeg >/dev/null 2>&1 || { echo "missing: ffmpeg — install via your package manager (e.g. pacman -S ffmpeg, apt install ffmpeg)"; ok=0; }; \
 	command -v ffprobe >/dev/null 2>&1 || { echo "missing: ffprobe — usually bundled with ffmpeg"; ok=0; }; \
+	command -v wasm-pack >/dev/null 2>&1 || { echo "(optional) missing: wasm-pack — install via https://rustwasm.github.io/wasm-pack/installer/"; }; \
 	pkg-config --exists mpv 2>/dev/null || { echo "missing: libmpv development headers — install via your package manager (e.g. pacman -S mpv, apt install libmpv-dev)"; ok=0; }; \
 	rustup component list --installed 2>/dev/null | grep -q rustfmt || { echo "missing: rustfmt — install via rustup component add rustfmt"; ok=0; }; \
 	rustup component list --installed 2>/dev/null | grep -q clippy || { echo "missing: clippy — install via rustup component add clippy"; ok=0; }; \

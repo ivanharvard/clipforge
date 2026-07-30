@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { QueueState } from "../state.slint";
+import { QueueItem } from "../state.slint";
 import { IconButton } from "../components/icon_button.slint";
 
 component TextButton inherits Rectangle {
@@ -40,7 +40,8 @@ component QueueCard inherits Rectangle {
     in property <bool> active: false;
     callback clicked;
 
-    width: 164px;
+    min-width: 164px;
+    max-width: 164px;
     height: 40px;
     border-radius: Theme.radius-control;
     border-width: 1px;
@@ -83,8 +84,16 @@ component QueueCard inherits Rectangle {
 }
 
 export component QueueCarousel inherits Rectangle {
+    in property <[QueueItem]> items;
+    in property <int> count: 0;
+    in property <bool> can-previous: false;
+    in property <bool> can-next: false;
     callback add-clicked;
     callback export-clicked;
+    callback remove-clicked;
+    callback select-clicked(int);
+    callback previous-clicked;
+    callback next-clicked;
 
     height: 64px;
     background: Theme.surface;
@@ -92,59 +101,68 @@ export component QueueCarousel inherits Rectangle {
     border-width: 1px;
     border-color: Theme.border-color;
 
-    HorizontalLayout {
-        padding-left: Theme.space-3;
-        padding-right: Theme.space-3;
-        padding-top: Theme.space-3;
-        padding-bottom: Theme.space-3;
-        spacing: Theme.space-2;
-        alignment: center;
+    add-button := TextButton {
+        x: Theme.space-3;
+        y: (parent.height - self.height) / 2;
+        width: 128px;
+        label: root.count > 0 ? "Add videos  ·  " + root.count : "Add videos";
+        clicked => { root.add-clicked(); }
+    }
 
-        TextButton {
-            label: QueueState.count > 0 ? "Add videos  ·  " + QueueState.count : "Add videos";
-            clicked => { root.add-clicked(); }
-        }
+    action-row := Rectangle {
+        x: parent.width - self.width - Theme.space-3;
+        y: (parent.height - self.height) / 2;
+        width: 192px;
+        height: 40px;
 
-        queue-strip := Rectangle {
-            horizontal-stretch: 1;
-            height: 40px;
-            clip: true;
+        HorizontalLayout {
+            spacing: Theme.space-2;
 
-            HorizontalLayout {
-                spacing: Theme.space-2;
-                alignment: center;
-                for item in QueueState.items: QueueCard {
-                    label: item.name;
-                    position: "Video " + (item.index + 1) + " of " + QueueState.count;
-                    active: item.active;
-                    clicked => { QueueState.select-clicked(item.index); }
-                }
+            IconButton {
+                icon: @image-url("../../icons/ui/chevron-left.svg");
+                accessible-label: "Previous queued video";
+                is-enabled: root.can-previous;
+                clicked => { root.previous-clicked(); }
+            }
+            IconButton {
+                icon: @image-url("../../icons/ui/chevron-right.svg");
+                accessible-label: "Next queued video";
+                is-enabled: root.can-next;
+                clicked => { root.next-clicked(); }
+            }
+            IconButton {
+                icon: @image-url("../../icons/ui/x.svg");
+                accessible-label: "Remove current video from queue";
+                is-enabled: root.count > 0;
+                clicked => { root.remove-clicked(); }
+            }
+            TextButton {
+                label: root.count > 1 ? "Export queue" : "Export video";
+                primary: true;
+                is-enabled: root.count > 0;
+                clicked => { root.export-clicked(); }
             }
         }
+    }
 
-        IconButton {
-            icon: @image-url("../../icons/ui/chevron-left.svg");
-            accessible-label: "Previous queued video";
-            is-enabled: QueueState.can-previous;
-            clicked => { QueueState.previous-clicked(); }
-        }
-        IconButton {
-            icon: @image-url("../../icons/ui/chevron-right.svg");
-            accessible-label: "Next queued video";
-            is-enabled: QueueState.can-next;
-            clicked => { QueueState.next-clicked(); }
-        }
-        IconButton {
-            icon: @image-url("../../icons/ui/x.svg");
-            accessible-label: "Remove current video from queue";
-            is-enabled: QueueState.count > 0;
-            clicked => { QueueState.remove-clicked(); }
-        }
-        TextButton {
-            label: "Export video";
-            primary: true;
-            is-enabled: QueueState.count > 0;
-            clicked => { root.export-clicked(); }
+    queue-strip := Rectangle {
+        x: add-button.x + add-button.width + Theme.space-2;
+        y: (parent.height - self.height) / 2;
+        width: Math.max(0px, action-row.x - Theme.space-2 - self.x);
+        height: 40px;
+        clip: true;
+
+        HorizontalLayout {
+            width: parent.width;
+            height: parent.height;
+            spacing: Theme.space-2;
+            alignment: start;
+            for item in root.items: QueueCard {
+                label: item.name;
+                position: "Video " + (item.index + 1) + " of " + root.count;
+                active: item.active;
+                clicked => { root.select-clicked(item.index); }
+            }
         }
     }
 }

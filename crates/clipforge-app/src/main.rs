@@ -61,23 +61,22 @@ fn sync_queue_state(app: &App, state: &AppState) {
 
 fn activate_and_apply_clip(app: &App, state: &Rc<RefCell<AppState>>, index: usize) {
     let result = state.borrow_mut().activate_queue_item(index);
-    match result {
-        Ok(()) => {
-            app.set_has_clip(true);
-            app.set_load_error_text("".into());
-            bindings::sync_playback_state(app, state);
-
-            if let Some(project) = &state.borrow().project {
-                bindings::sync_all_panels_from_project(app, project);
-            }
-            bindings::update_undo_redo_buttons(app, &state.borrow());
-            sync_queue_state(app, &state.borrow());
-        }
-        Err(err) => {
-            app.set_has_clip(state.borrow().project.is_some());
-            app.set_load_error_text(err.to_string().into());
-        }
+    if let Err(err) = result {
+        app.set_load_error_text(err.to_string().into());
+    } else {
+        app.set_load_error_text("".into());
     }
+
+    let has_clip = state.borrow().project.is_some();
+    app.set_has_clip(has_clip);
+    if has_clip {
+        bindings::sync_playback_state(app, state);
+        if let Some(project) = &state.borrow().project {
+            bindings::sync_all_panels_from_project(app, project);
+        }
+        bindings::update_undo_redo_buttons(app, &state.borrow());
+    }
+    sync_queue_state(app, &state.borrow());
 }
 
 fn enqueue_and_activate(

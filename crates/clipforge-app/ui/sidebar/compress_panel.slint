@@ -8,6 +8,7 @@ import { ComboBox, SpinBox, CheckBox } from "std-widgets.slint";
 export component CompressPanel inherits PanelSection {
     title: "Compress";
     icon: @image-url("../../icons/ui/archive-restore.svg");
+    expanded: true;
 
     Text {
         text: "Trim first, then encode to a predictable output size.";

@@ -13,7 +13,7 @@ import {
     ExportDialogState,
     ExportPhase,
 } from "state.slint";
-import { TitleBar } from "components/title_bar.slint";
+import { IconButton } from "components/icon_button.slint";
 import { VideoPreview } from "preview/video_preview.slint";
 import { Sidebar } from "sidebar/sidebar.slint";
 import { IntroSidebar } from "sidebar/intro_sidebar.slint";
@@ -62,8 +62,8 @@ export component App inherits Window {
 
     callback open-clip-clicked;
     callback export-clicked;
-    callback undo-requested <=> title-bar.undo-clicked;
-    callback redo-requested <=> title-bar.redo-clicked;
+    callback undo-requested;
+    callback redo-requested;
 
     FocusScope {
         // Grabs focus on startup so Ctrl/Cmd+Z work without first clicking
@@ -85,18 +85,21 @@ export component App inherits Window {
         }
 
         VerticalLayout {
-            title-bar := TitleBar {
-                can-undo: root.can-undo;
-                can-redo: root.can-redo;
-            }
-
             workspace := VerticalLayout {
                 padding: Theme.space-3;
                 spacing: Theme.space-3;
 
                 QueueCarousel {
+                    items: QueueState.items;
+                    count: QueueState.count;
+                    can-previous: QueueState.can-previous;
+                    can-next: QueueState.can-next;
                     add-clicked => { root.open-clip-clicked(); }
                     export-clicked => { root.export-clicked(); }
+                    remove-clicked => { QueueState.remove-clicked(); }
+                    select-clicked(index) => { QueueState.select-clicked(index); }
+                    previous-clicked => { QueueState.previous-clicked(); }
+                    next-clicked => { QueueState.next-clicked(); }
                 }
 
                 editor-shell := Rectangle {
@@ -127,6 +130,36 @@ export component App inherits Window {
 
                         if root.has-clip: ScrubberBar {}
                     }
+                }
+            }
+        }
+
+        undo-dock := Rectangle {
+            x: parent.width - self.width - Theme.space-4;
+            y: parent.height - self.height - Theme.space-4;
+            width: 68px;
+            height: 36px;
+            background: Theme.surface;
+            border-radius: Theme.radius-control;
+            border-width: 1px;
+            border-color: Theme.border-color;
+
+            HorizontalLayout {
+                padding: Theme.space-1;
+                spacing: Theme.space-1;
+
+                IconButton {
+                    icon: @image-url("../icons/ui/undo-2.svg");
+                    accessible-label: "Undo";
+                    is-enabled: root.can-undo;
+                    clicked => { root.undo-requested(); }
+                }
+
+                IconButton {
+                    icon: @image-url("../icons/ui/redo-2.svg");
+                    accessible-label: "Redo";
+                    is-enabled: root.can-redo;
+                    clicked => { root.redo-requested(); }
                 }
             }
         }

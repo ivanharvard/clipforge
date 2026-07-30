@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use crate::panels::{QualityMode, VideoCodec};
+use crate::panels::{AudioState, QualityMode, VideoCodec};
+use crate::pipeline::evaluate_pipeline;
 use crate::project::Project;
 
 /// Builds the `ffmpeg` argument list for exporting `project` to `output`.
@@ -22,94 +23,81 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
             .to_string(),
     ];
 
-    let mut filters = Vec::new();
-
-    let crop = &project.crop;
-    let crop_applied = crop.width != project.source_width
-        || crop.height != project.source_height
-        || crop.x != 0
-        || crop.y != 0;
-    if crop_applied {
-        filters.push(format!(
-            "crop={}:{}:{}:{}",
-            crop.width, crop.height, crop.x, crop.y
-        ));
-    }
-
-    let input_width = if crop_applied {
-        crop.width
-    } else {
-        project.source_width
-    };
-    let input_height = if crop_applied {
-        crop.height
-    } else {
-        project.source_height
-    };
-    let (resolved_width, resolved_height) = project.resolution.resolve(input_width, input_height);
-    let out_width = even_dimension(resolved_width);
-    let out_height = even_dimension(resolved_height);
-    if (out_width, out_height) != (input_width, input_height) {
-        filters.push(format!("scale={out_width}:{out_height}"));
-    }
-
-    let rotation = project.transform.rotation();
-    match rotation {
-        90 => filters.push("transpose=1".to_string()),
-        180 => filters.push("transpose=2,transpose=2".to_string()),
-        270 => filters.push("transpose=2".to_string()),
-        _ => {}
-    }
-    if project.transform.flip_horizontal {
-        filters.push("hflip".to_string());
-    }
-    if project.transform.flip_vertical {
-        filters.push("vflip".to_string());
-    }
-    if let Some(limit) = project.compress.frame_rate_limit.fps() {
-        if project.source_frame_rate == 0.0 || project.source_frame_rate > f64::from(limit) {
-            filters.push(format!("fps={limit}"));
-        }
-    }
+    let plan = evaluate_pipeline(project);
+    let filters = &plan.video_filters;
 
     if !filters.is_empty() {
         args.push("-vf".to_string());
         args.push(filters.join(","));
     }
 
-    let requested_kbps = match project.compress.mode {
-        QualityMode::Crf(crf) => Some(quality_bitrate_kbps(project, crf)),
-        QualityMode::BitrateKbps(_) | QualityMode::TargetSizeMb(_) => project
-            .compress
-            .target_bitrate_kbps(project.clip_bounds.selected_duration().as_secs_f64()),
-    };
+    let requested_kbps = plan
+        .compression_enabled
+        .then(|| match project.compress.mode {
+            QualityMode::Crf(crf) => Some(quality_bitrate_kbps(
+                plan.output_width,
+                plan.output_height,
+                crf,
+            )),
+            QualityMode::BitrateKbps(_) | QualityMode::TargetSizeMb(_) => project
+                .compress
+                .target_bitrate_kbps(project.clip_bounds.selected_duration().as_secs_f64()),
+        })
+        .flatten();
     if let Some(requested_kbps) = requested_kbps {
-        let audio_kbps = if project.audio.muted { 0 } else { 128 };
-        let max_kbps = quality_bitrate_kbps(project, 8);
+        let audio = if plan.audio_enabled {
+            project.audio.clone()
+        } else {
+            AudioState::default()
+        };
+        let audio_kbps = if audio.muted { 0 } else { 128 };
+        let max_kbps = quality_bitrate_kbps(plan.output_width, plan.output_height, 8);
         let video_kbps = requested_kbps
             .saturating_sub(audio_kbps)
             .clamp(64, max_kbps);
         args.extend(["-b:v".to_string(), format!("{video_kbps}k")]);
     }
 
+    let audio = if plan.audio_enabled {
+        project.audio.clone()
+    } else {
+        AudioState::default()
+    };
+    if let Some(track) = audio.track_index.filter(|_| !audio.muted) {
+        args.extend([
+            "-map".to_string(),
+            "0:v:0".to_string(),
+            "-map".to_string(),
+            format!("0:a:{track}"),
+        ]);
+    }
+
     args.push("-c:v".to_string());
-    match project.compress.codec {
+    let codec = if plan.compression_enabled {
+        project.compress.codec
+    } else {
+        VideoCodec::H264
+    };
+    match codec {
         VideoCodec::H264 => {
             args.push("libx264".to_string());
             args.extend([
                 "-preset".to_string(),
-                if project.compress.extra_quality {
+                if plan.compression_enabled && project.compress.extra_quality {
                     "slow".to_string()
                 } else {
                     "veryfast".to_string()
                 },
                 "-profile:v".to_string(),
-                if project.compress.extra_quality {
+                if plan.compression_enabled && project.compress.extra_quality {
                     "high".to_string()
                 } else {
                     "main".to_string()
                 },
             ]);
+            if !plan.compression_enabled {
+                args.extend(["-crf".to_string(), "18".to_string()]);
+            }
         }
         VideoCodec::Av1 => {
             args.push("libaom-av1".to_string());
@@ -128,7 +116,7 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
     args.push("-pix_fmt".to_string());
     args.push("yuv420p".to_string());
 
-    if project.audio.muted {
+    if audio.muted {
         args.push("-an".to_string());
     } else {
         args.push("-c:a".to_string());
@@ -136,11 +124,11 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
         args.push("-b:a".to_string());
         args.push("128k".to_string());
         args.push("-af".to_string());
-        args.push(format!("volume={}", project.audio.effective_volume()));
-        if let Some(track) = project.audio.track_index {
-            args.push("-map".to_string());
-            args.push(format!("0:a:{track}"));
+        let mut audio_filters = vec![format!("volume={}", audio.effective_volume())];
+        if audio.normalize {
+            audio_filters.push("loudnorm=I=-16:TP=-1.5:LRA=11".to_string());
         }
+        args.push(audio_filters.join(","));
     }
 
     args.push("-progress".to_string());
@@ -150,14 +138,7 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
     args
 }
 
-fn even_dimension(value: u32) -> u32 {
-    value.max(2) & !1
-}
-
-fn quality_bitrate_kbps(project: &Project, crf: u8) -> u32 {
-    let (width, height) = project
-        .resolution
-        .resolve(project.crop.width.max(2), project.crop.height.max(2));
+fn quality_bitrate_kbps(width: u32, height: u32, crf: u8) -> u32 {
     let baseline_kbps = width.max(2) as f64 * height.max(2) as f64 * 30.0 * 0.07 / 1000.0;
     let quality_factor = 2.0_f64.powf((23.0 - f64::from(crf.clamp(0, 51))) / 6.0);
     (baseline_kbps * quality_factor).clamp(128.0, 50_000.0) as u32
@@ -258,6 +239,26 @@ mod tests {
         let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
         assert!(args.contains(&"-an".to_string()));
         assert!(!args.contains(&"-af".to_string()));
+    }
+
+    #[test]
+    fn selected_audio_keeps_video_and_applies_normalization() {
+        let mut project = sample_project();
+        project.audio.track_index = Some(1);
+        project.audio.normalize = true;
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "0:v:0"]));
+        assert!(args.windows(2).any(|pair| pair == ["-map", "0:a:1"]));
+        assert!(args.iter().any(|argument| argument.contains("loudnorm")));
+    }
+
+    #[test]
+    fn disabled_compression_uses_quality_encode_without_target_bitrate() {
+        let mut project = sample_project();
+        project.set_tool_enabled(crate::ToolKind::Compress, false);
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        assert!(!args.contains(&"-b:v".to_string()));
+        assert!(args.windows(2).any(|pair| pair == ["-crf", "18"]));
     }
 
     #[test]

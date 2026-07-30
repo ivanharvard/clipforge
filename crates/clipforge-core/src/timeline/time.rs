@@ -21,15 +21,19 @@ impl Timestamp {
         self.0 as f64 / 1000.0
     }
 
-    /// Formats as `HH:MM:SS.cc` (centiseconds), matching the scrubber bar's
-    /// display convention.
+    /// Formats as `HH:MM:SS`, adding `.cc` only when the value contains a
+    /// fractional second.
     pub fn format_hhmmss(self) -> String {
         let total_cs = self.0 / 10;
         let hours = total_cs / 360_000;
         let minutes = (total_cs / 6000) % 60;
         let seconds = (total_cs / 100) % 60;
         let centis = total_cs % 100;
-        format!("{hours:02}:{minutes:02}:{seconds:02}.{centis:02}")
+        if centis == 0 {
+            format!("{hours:02}:{minutes:02}:{seconds:02}")
+        } else {
+            format!("{hours:02}:{minutes:02}:{seconds:02}.{centis:02}")
+        }
     }
 
     /// Parses a `HH:MM:SS.cc`, `MM:SS.cc`, or `SS.cc` string back into a
@@ -71,7 +75,7 @@ mod tests {
 
     #[test]
     fn formats_hhmmss() {
-        assert_eq!(Timestamp::from_ms(0).format_hhmmss(), "00:00:00.00");
+        assert_eq!(Timestamp::from_ms(0).format_hhmmss(), "00:00:00");
         assert_eq!(Timestamp::from_ms(4200).format_hhmmss(), "00:00:04.20");
         assert_eq!(Timestamp::from_ms(18_650).format_hhmmss(), "00:00:18.65");
         assert_eq!(Timestamp::from_ms(3_661_050).format_hhmmss(), "01:01:01.05");

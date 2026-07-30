@@ -65,6 +65,9 @@ pub fn parse_ffprobe_json(raw: &[u8]) -> CoreResult<MediaInfo> {
                 codec: stream.codec_name.unwrap_or_default(),
                 channels: stream.channels.unwrap_or(0),
                 sample_rate: stream.sample_rate.and_then(|s| s.parse().ok()).unwrap_or(0),
+                language: stream.tags.language,
+                title: stream.tags.title,
+                is_default: stream.disposition.default != 0,
             }),
             _ => {}
         }

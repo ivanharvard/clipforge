@@ -4,6 +4,7 @@ use clipforge_core::export::build_export_args;
 use clipforge_core::panels::{CompressState, CropState, ResolutionPreset, ResolutionState};
 use clipforge_core::timeline::{ClipBounds, Timestamp};
 use clipforge_core::Project;
+use clipforge_core::{evaluate_pipeline, ToolKind};
 use wasm_bindgen::prelude::*;
 
 use crate::choices::{parse_codec, parse_frame_rate_limit, parse_quality_mode, parse_resolution};
@@ -174,6 +175,42 @@ impl WebProject {
         Ok(())
     }
 
+    /// Replaces the normalized media metadata produced by `parse_probe_output`.
+    #[wasm_bindgen(js_name = setMediaInfoJson)]
+    pub fn set_media_info_json(&mut self, json: &str) -> Result<(), JsError> {
+        let info: clipforge_core::media::MediaInfo =
+            serde_json::from_str(json).map_err(|error| js_error("invalid media info", error))?;
+        self.inner.audio_tracks = info.audio;
+        if self.inner.audio.track_index.is_none() {
+            self.inner.audio.track_index = self
+                .inner
+                .audio_tracks
+                .iter()
+                .position(|track| track.is_default)
+                .or_else(|| (!self.inner.audio_tracks.is_empty()).then_some(0));
+        }
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = setToolEnabled)]
+    pub fn set_tool_enabled(&mut self, tool: &str, enabled: bool) -> Result<(), JsError> {
+        self.inner
+            .set_tool_enabled(to_js(parse_tool(tool))?, enabled);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = moveTool)]
+    pub fn move_tool(&mut self, tool: &str, destination: usize) -> Result<(), JsError> {
+        self.inner.move_tool(to_js(parse_tool(tool))?, destination);
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = toolPipelineJson)]
+    pub fn tool_pipeline_json(&self) -> Result<String, JsError> {
+        serde_json::to_string(&self.inner.effective_pipeline())
+            .map_err(|error| js_error("serialize tool pipeline", error))
+    }
+
     /// Configures browser export compression using string-valued UI choices.
     #[wasm_bindgen(js_name = setCompression)]
     pub fn set_compression(
@@ -216,6 +253,33 @@ impl WebProject {
             args.drain(index..=(index + 1).min(args.len() - 1));
         }
         serde_json::to_string(&args).map_err(|error| js_error("serialize export arguments", error))
+    }
+
+    #[wasm_bindgen(js_name = exportPlanJson)]
+    pub fn export_plan_json(&self, input_name: &str, output_name: &str) -> Result<String, JsError> {
+        let args: Vec<String> =
+            serde_json::from_str(&self.build_export_args_json(input_name, output_name)?)
+                .map_err(|error| js_error("deserialize export arguments", error))?;
+        let plan = evaluate_pipeline(&self.inner);
+        serde_json::to_string(&serde_json::json!({
+            "args": args,
+            "width": plan.output_width,
+            "height": plan.output_height,
+            "frameRate": plan.output_frame_rate,
+            "warnings": plan.warnings,
+        }))
+        .map_err(|error| js_error("serialize export plan", error))
+    }
+}
+
+fn parse_tool(value: &str) -> Result<ToolKind, String> {
+    match value {
+        "compress" => Ok(ToolKind::Compress),
+        "transform" => Ok(ToolKind::Transform),
+        "crop" => Ok(ToolKind::Crop),
+        "resolution" => Ok(ToolKind::Resolution),
+        "audio" => Ok(ToolKind::Audio),
+        _ => Err(format!("unknown tool: {value}")),
     }
 }
 
@@ -292,5 +356,17 @@ mod tests {
         assert!(validate_crop(1920, 1080, 1900, 0, 100, 100).is_err());
         assert!(parse_quality_mode("crf", 99.0).is_err());
         assert_eq!(parse_quality_mode("crf", 0.0).unwrap(), QualityMode::Crf(0));
+    }
+
+    #[test]
+    fn tool_pipeline_can_be_toggled_and_reordered() {
+        let mut project = project();
+        project.set_tool_enabled("compress", false).unwrap();
+        project.move_tool("resolution", 0).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&project.tool_pipeline_json().unwrap()).unwrap();
+        assert_eq!(value[0]["kind"], "resolution");
+        assert_eq!(value[1]["kind"], "compress");
+        assert_eq!(value[1]["enabled"], false);
     }
 }

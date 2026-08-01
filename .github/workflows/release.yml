@@ -158,3 +158,72 @@ jobs:
             artifacts/linux-appimage/*.AppImage
             artifacts/linux-pacman/*.pkg.tar.zst
             artifacts/windows-msi/ClipForge.msi
+
+  aur-publish:
+    # Same gate as publish-release: only push to AUR once every platform
+    # actually built, so the AUR package never points at a version that
+    # doesn't have a real release behind it.
+    needs: [verify-version, linux-appimage, linux-pacman, windows-msi]
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --noconfirm --needed git openssh curl
+
+      - uses: actions/checkout@v4
+        with:
+          path: clipforge
+
+      - name: Set up SSH for aur.archlinux.org
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur_ci
+          chmod 600 ~/.ssh/aur_ci
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur_ci
+            User aur
+            StrictHostKeyChecking accept-new
+          EOF
+          chmod 600 ~/.ssh/config
+
+      # AUR lazily creates an empty repo the first time any valid package
+      # name is cloned — there's no separate "create the package" step, but
+      # the fallback below stays as a defensive no-op if that ever changes.
+      - name: Clone the AUR package repo
+        run: |
+          git clone ssh://aur@aur.archlinux.org/clipforge.git aur-repo || {
+            mkdir aur-repo
+            git -C aur-repo init -b master
+            git -C aur-repo remote add origin ssh://aur@aur.archlinux.org/clipforge.git
+          }
+
+      - name: Update PKGBUILD and regenerate .SRCINFO
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify-version.outputs.version }}"
+          cp clipforge/packaging/linux/aur/PKGBUILD aur-repo/PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$version/" aur-repo/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" aur-repo/PKGBUILD
+          sha=$(curl -sL "https://github.com/ivanharvard/clipforge/archive/refs/tags/v$version.tar.gz" | sha256sum | cut -d' ' -f1)
+          sed -i "s/^sha256sums=.*/sha256sums=('$sha')/" aur-repo/PKGBUILD
+          # makepkg refuses to run as root even for --printsrcinfo (which
+          # only evaluates the PKGBUILD's variables, no network/build
+          # needed), so this still needs handing off to an unprivileged user.
+          useradd -m builder
+          chown -R builder:builder aur-repo
+          runuser -u builder -- bash -c 'cd aur-repo && makepkg --printsrcinfo > .SRCINFO'
+
+      - name: Commit and push to AUR
+        run: |
+          cd aur-repo
+          git config user.name "ClipForge CI"
+          git config user.email "actions@github.com"
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "PKGBUILD/.SRCINFO unchanged — nothing to publish."
+            exit 0
+          fi
+          git commit -m "Update to ${{ needs.verify-version.outputs.version }}"
+          git push origin HEAD:master

@@ -1,6 +1,14 @@
 import { Theme } from "../theme.slint";
 
 // A compact, theme-aware SVG icon button shared by toolbar and panel actions.
+//
+// Deliberately custom-drawn in every build, including qt-style: Slint's
+// native `Button` ignores an explicit width/height smaller than its own
+// QStyle-computed minimum size (a QPushButton isn't designed to be squeezed
+// into a 28px icon-only slot), so wrapping it here just makes every icon
+// button overflow its dock — confirmed by actually rendering it. Slint has
+// no native "tool button" style suited to this size, so this stays custom
+// for now; only the color palette (Theme) follows KDE's Match System theme.
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <bool> active: false;

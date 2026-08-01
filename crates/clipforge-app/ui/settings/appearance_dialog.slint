@@ -1,0 +1,128 @@
+import { Theme } from "../theme.slint";
+import { AppearanceState } from "../state.slint";
+import { Button } from "std-widgets.slint";
+
+// Custom-drawn radio-style option row, not std-widgets RadioButton: Slint
+// 1.17's "qt" style implements RadioButton as a hand-drawn component with
+// hardcoded light-theme colors rather than a real native QStyle-painted
+// item (unlike Button/CheckBox/ComboBox/Slider/SpinBox/LineEdit, which all
+// use genuine Native* items and correctly follow the live palette) — so it
+// never contrasts correctly against a dark dialog, and its RadioGroup's
+// internal exclusive-selection bookkeeping fights an externally-driven
+// `checked` binding badly enough to desync the selection. This sidesteps
+// both problems: plain Theme-token colors and fully external state.
+component ThemeOption inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 32px;
+    border-radius: Theme.radius-control;
+    background: touch.has-hover ? Theme.surface-alt : transparent;
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        spacing: Theme.space-2;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: root.selected ? Theme.accent : Theme.text-secondary;
+
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: Theme.accent;
+                opacity: root.selected ? 1.0 : 0.0;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                animate opacity { duration: 100ms; easing: ease-out; }
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: Theme.text-primary;
+            font-size: Theme.text-sm;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Appearance settings: theme palette (Dark / Light / Match System), plus
+// read-only status about KDE native styling (see AppearanceState — that
+// part is informational, not a toggle, since Slint's "qt" style is baked
+// in at compile time and can't be switched at runtime).
+export component AppearanceDialog inherits Rectangle {
+    background: Theme.surface;
+    border-radius: Theme.radius-panel;
+    border-width: 1px;
+    border-color: Theme.border-color;
+
+    VerticalLayout {
+        padding: Theme.space-6;
+        spacing: Theme.space-4;
+
+        Text {
+            text: "Appearance";
+            font-size: Theme.text-lg;
+            font-weight: 600;
+            color: Theme.text-primary;
+        }
+
+        VerticalLayout {
+            spacing: Theme.space-1;
+
+            ThemeOption {
+                label: "Dark";
+                selected: AppearanceState.theme-mode-index == 0;
+                clicked => { AppearanceState.theme-mode-selected(0); }
+            }
+
+            ThemeOption {
+                label: "Light";
+                selected: AppearanceState.theme-mode-index == 1;
+                clicked => { AppearanceState.theme-mode-selected(1); }
+            }
+
+            ThemeOption {
+                label: "Match system";
+                selected: AppearanceState.theme-mode-index == 2;
+                clicked => { AppearanceState.theme-mode-selected(2); }
+            }
+        }
+
+        if AppearanceState.native-style-available: Text {
+            text: "Using native KDE Application Style for controls (configured in KDE System Settings).";
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            wrap: word-wrap;
+        }
+
+        if AppearanceState.kde-detected: Text {
+            text: "For native KDE-styled controls, install the clipforge-kde package.";
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            alignment: end;
+
+            Button {
+                text: "Close";
+                primary: true;
+                clicked => { AppearanceState.close-clicked(); }
+            }
+        }
+    }
+}

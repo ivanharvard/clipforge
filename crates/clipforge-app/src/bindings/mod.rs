@@ -1,3 +1,4 @@
+mod appearance;
 mod export;
 mod panels;
 mod playback;
@@ -20,4 +21,5 @@ pub fn wire_all(app: &App, state: &Rc<RefCell<AppState>>) {
     timeline::wire(app, state);
     export::wire(app, state);
     panels::wire(app, state);
+    appearance::wire(app, state);
 }

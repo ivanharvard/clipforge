@@ -118,11 +118,33 @@ fn pick_video_paths() -> Vec<PathBuf> {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Must run before `App::new()` initializes Qt in the qt-style build.
+    platform::ensure_qt_platform_theme();
+
     let app = App::new()?;
+
+    // The qt-style build initializes a QApplication as part of setting up
+    // Qt-styled widgets, and Qt's own startup calls `setlocale(LC_ALL, "")`,
+    // switching LC_NUMERIC away from "C" to the user's system locale.
+    // libmpv refuses to initialize unless LC_NUMERIC is "C" (many locales
+    // use "," as the decimal separator, which breaks its internal numeric
+    // parsing) — reset it before AppState::new() below initializes the
+    // player. Harmless on the non-qt-style build, which never touches it.
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::setlocale(libc::LC_NUMERIC, c"C".as_ptr());
+    }
+
     let state = Rc::new(RefCell::new(AppState::new()?));
 
-    theme::apply_system_theme(&app);
+    let theme_mode = state.borrow().settings.theme_mode();
+    theme::apply_theme(&app, theme_mode);
     platform::apply_native_window_hints(app.window());
+
+    let appearance = app.global::<AppearanceState>();
+    appearance.set_theme_mode_index(theme_mode as i32);
+    appearance.set_native_style_available(cfg!(feature = "qt-style"));
+    appearance.set_kde_detected(platform::is_kde() && !cfg!(feature = "qt-style"));
 
     let startup_paths = std::env::args_os()
         .skip(1)

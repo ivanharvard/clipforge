@@ -229,6 +229,11 @@ impl AppState {
         self.save_settings();
     }
 
+    pub fn set_theme_mode(&mut self, mode: crate::settings::ThemeMode) {
+        self.settings.set_theme_mode(mode);
+        self.save_settings();
+    }
+
     pub fn set_compression_apply_all(&mut self, enabled: bool) {
         self.settings.compression_apply_all = enabled;
         if enabled {

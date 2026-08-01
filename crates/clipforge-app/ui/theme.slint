@@ -18,14 +18,18 @@ export global Theme {
 
     // Color roles (light / dark). Dark values are tuned to the app's
     // brand mark: a near-black background with an orange accent.
-    out property <color> bg: root.dark ? #000000 : #F5F5F6;
-    out property <color> surface: root.dark ? #141415 : #FFFFFF;
-    out property <color> surface-alt: root.dark ? #1E1E20 : #ECECEE;
-    out property <color> border-color: root.dark ? #2C2C2F : #DCDCDF;
-    out property <color> text-primary: root.dark ? #F5F5F6 : #1A1A1C;
-    out property <color> text-secondary: root.dark ? #A0A0A5 : #6B6C70;
-    out property <color> accent: root.dark ? #F0791C : #3A7DFF;
-    out property <color> accent-hover: root.dark ? #FF9A42 : #2E67E0;
+    // In-out (rather than pure `out`) so Rust can override them with a
+    // detected system palette (KDE's color scheme) in "Match System" mode;
+    // reset to these branded defaults whenever the user picks Dark/Light
+    // explicitly.
+    in-out property <color> bg: root.dark ? #000000 : #F5F5F6;
+    in-out property <color> surface: root.dark ? #141415 : #FFFFFF;
+    in-out property <color> surface-alt: root.dark ? #1E1E20 : #ECECEE;
+    in-out property <color> border-color: root.dark ? #2C2C2F : #DCDCDF;
+    in-out property <color> text-primary: root.dark ? #F5F5F6 : #1A1A1C;
+    in-out property <color> text-secondary: root.dark ? #A0A0A5 : #6B6C70;
+    in-out property <color> accent: root.dark ? #F0791C : #3A7DFF;
+    in-out property <color> accent-hover: root.dark ? #FF9A42 : #2E67E0;
     out property <color> danger: root.dark ? #F16C71 : #E5484D;
     out property <color> success: root.dark ? #4CCB84 : #2FA968;
 

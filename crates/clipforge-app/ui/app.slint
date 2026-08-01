@@ -12,6 +12,7 @@ import {
     ToolItem,
     ExportDialogState,
     ExportPhase,
+    AppearanceState,
 } from "state.slint";
 import { IconButton } from "components/icon_button.slint";
 import { VideoPreview } from "preview/video_preview.slint";
@@ -19,6 +20,7 @@ import { Sidebar } from "sidebar/sidebar.slint";
 import { IntroSidebar } from "sidebar/intro_sidebar.slint";
 import { ScrubberBar } from "timeline/scrubber_bar.slint";
 import { ExportDialog } from "export/export_dialog.slint";
+import { AppearanceDialog } from "settings/appearance_dialog.slint";
 import { QueueCarousel } from "queue/queue_carousel.slint";
 
 // Re-exported so Rust can reach these globals via `app.global::<T>()` —
@@ -38,6 +40,7 @@ export {
     ToolItem,
     ExportDialogState,
     ExportPhase,
+    AppearanceState,
 }
 
 // Root window: branded command bar, queue, and a unified editor shell.
@@ -164,6 +167,23 @@ export component App inherits Window {
                 }
             }
         }
+
+        settings-dock := Rectangle {
+            x: Theme.space-4;
+            y: parent.height - self.height - Theme.space-4;
+            width: 36px;
+            height: 36px;
+            background: Theme.surface;
+            border-radius: Theme.radius-control;
+            border-width: 1px;
+            border-color: Theme.border-color;
+
+            IconButton {
+                icon: @image-url("../icons/ui/settings.svg");
+                accessible-label: "Appearance settings";
+                clicked => { AppearanceState.open-requested(); }
+            }
+        }
     }
 
     if ExportDialogState.visible: Rectangle {
@@ -172,6 +192,15 @@ export component App inherits Window {
         ExportDialog {
             width: 400px;
             height: 220px;
+        }
+    }
+
+    if AppearanceState.visible: Rectangle {
+        background: #000000.with-alpha(0.4);
+
+        AppearanceDialog {
+            width: 340px;
+            height: 320px;
         }
     }
 }

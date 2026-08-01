@@ -160,3 +160,19 @@ export global ExportDialogState {
     callback cancel-clicked();
     callback close-clicked();
 }
+
+export global AppearanceState {
+    in-out property <bool> visible: false;
+    // 0 = Dark, 1 = Light, 2 = Match System.
+    in-out property <int> theme-mode-index: 0;
+    // Set once from Rust at startup — true only in a build compiled with
+    // Slint's "qt" style (the `qt-style` Cargo feature).
+    in property <bool> native-style-available: false;
+    // Set once from Rust at startup — true when running on KDE but this
+    // build doesn't have native-style-available.
+    in property <bool> kde-detected: false;
+
+    callback theme-mode-selected(int);
+    callback open-requested();
+    callback close-clicked();
+}

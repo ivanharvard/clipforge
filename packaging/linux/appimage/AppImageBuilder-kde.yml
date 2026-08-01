@@ -1,0 +1,38 @@
+# Same as AppImageBuilder.yml, but for the KDE-styled build (the qt-style
+# Cargo feature): staged into ./AppDir-kde by scripts/build-appimage.sh from
+# a binary linked against Qt6.
+#
+# Unlike the pacman clipforge-kde package, this AppImage does NOT bundle
+# Qt6's shared libraries or plugins (platform/style plugins in particular) —
+# verified locally: appimage-builder's automatic file deploy only picks up
+# files explicitly staged into AppDir or listed under `files.include`, not
+# a binary's full transitive ELF dependency tree, so libQt6Core/Gui/Widgets
+# etc. are silently left unbundled and resolved from the *running* system at
+# launch, same as ffmpeg/mpv. That means, unlike a normal AppImage, this one
+# genuinely requires Qt6 to already be installed on the host — running it on
+# a system without Qt6 fails at launch with a dynamic-linker error, not a
+# friendly message. Properly self-contained Qt bundling (libs *and*
+# plugins) needs a different tool (e.g. linuxdeploy + linuxdeploy-plugin-qt)
+# — out of scope for now; this AppImage exists for the "already-KDE, don't
+# want to pull in pacman split packages" case, not for portability to
+# machines without Qt6.
+version: 1
+
+AppDir:
+  app_info:
+    id: com.clipforge.ClipForge.KDE
+    name: ClipForge-KDE
+    icon: clipforge
+    version: latest
+    exec: usr/bin/clipforge-app
+    exec_args: $@
+
+  files:
+    include: []
+    exclude:
+      - usr/share/man
+      - usr/share/doc
+
+AppImage:
+  arch: x86_64
+  update-information: guess

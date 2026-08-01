@@ -8,17 +8,30 @@
 # repo never has this project's source lying around, only PKGBUILD itself,
 # so it needs to fetch its own copy of the source instead. See
 # packaging/linux/aur/PKGBUILD for that version.
-pkgname=clipforge
+#
+# This is a split package: `clipforge` is the default build, `clipforge-kde`
+# additionally compiles Slint's "qt" style in (the `qt-style` Cargo feature)
+# so std-widgets controls render via the user's actual KDE QStyle. Slint
+# bakes the widget style in at compile time and hard-links Qt6, so this has
+# to be two separate binaries built from one source tree rather than a
+# runtime toggle — see the Appearance settings plan for why.
+pkgbase=clipforge
+pkgname=('clipforge' 'clipforge-kde')
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="Quick single-clip video trimmer"
 arch=('x86_64')
 url="https://github.com/ivanharvard/clipforge"
 license=('MIT')
-depends=('ffmpeg' 'mpv')
-makedepends=('cargo')
+makedepends=('cargo' 'qt6-base')
 source=()
 sha256sums=()
+# Arch's default LTO build flag corrupts the qt-style build: it's applied to
+# qttypes' C++ codegen (via the `cpp`/`cpp_build` crates, which compile Qt
+# glue code as part of the Rust build), and an LTO'd object there produces
+# incomplete bindings that fail with unrelated-looking Rust trait errors
+# downstream. Confirmed locally — the plain build is unaffected, only
+# clipforge-kde's Qt-linked build breaks.
+options=('!lto')
 
 # makepkg sets $startdir to wherever it was *invoked* from, not to this
 # PKGBUILD's own directory — and scripts/build-pacman.sh cd's here first, so
@@ -33,15 +46,35 @@ repo_root() {
 build() {
   cd "$(repo_root)"
   cargo build --release --bin clipforge-app
+  cargo build --release --bin clipforge-app --features qt-style --target-dir target/qt-style
 }
 
-package() {
-  cd "$(repo_root)"
-  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+_install_common() {
   install -Dm644 packaging/linux/appimage/clipforge.desktop \
     "$pkgdir/usr/share/applications/clipforge.desktop"
   for size in 16 24 32 48 64 128 256 512; do
     install -Dm644 "packaging/shared/icons/clipforge-${size}.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/clipforge.png"
   done
+}
+
+package_clipforge() {
+  pkgdesc="Quick single-clip video trimmer"
+  depends=('ffmpeg' 'mpv')
+  conflicts=('clipforge-kde')
+
+  cd "$(repo_root)"
+  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  _install_common
+}
+
+package_clipforge-kde() {
+  pkgdesc="Quick single-clip video trimmer, with native KDE Application Style controls"
+  depends=('ffmpeg' 'mpv' 'qt6-base')
+  provides=('clipforge')
+  conflicts=('clipforge')
+
+  cd "$(repo_root)"
+  install -Dm755 target/qt-style/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  _install_common
 }

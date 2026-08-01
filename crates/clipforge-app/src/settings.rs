@@ -3,6 +3,14 @@ use std::path::PathBuf;
 use clipforge_core::panels::{CompressState, FrameRateLimit, QualityMode, VideoCodec};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ThemeMode {
+    #[default]
+    Dark,
+    Light,
+    System,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum SavedCompression {
     Crf(u8),
@@ -39,6 +47,7 @@ pub struct AppSettings {
     compression_extra_quality: bool,
     compression_tolerance_percent: u8,
     pub compression_apply_all: bool,
+    theme_mode: ThemeMode,
 }
 
 impl Default for AppSettings {
@@ -50,6 +59,7 @@ impl Default for AppSettings {
             compression_extra_quality: false,
             compression_tolerance_percent: 25,
             compression_apply_all: true,
+            theme_mode: ThemeMode::Dark,
         }
     }
 }
@@ -88,6 +98,14 @@ impl AppSettings {
         self.compression_codec = compression.codec;
         self.compression_extra_quality = compression.extra_quality;
         self.compression_tolerance_percent = compression.tolerance_percent;
+    }
+
+    pub fn theme_mode(&self) -> ThemeMode {
+        self.theme_mode
+    }
+
+    pub fn set_theme_mode(&mut self, theme_mode: ThemeMode) {
+        self.theme_mode = theme_mode;
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -133,5 +151,17 @@ mod tests {
         let settings = AppSettings::default();
         assert_eq!(settings.compression().mode, QualityMode::TargetSizeMb(10.0));
         assert!(settings.compression_apply_all);
+    }
+
+    #[test]
+    fn theme_mode_defaults_to_dark_and_round_trips() {
+        let mut settings = AppSettings::default();
+        assert_eq!(settings.theme_mode(), ThemeMode::Dark);
+
+        settings.set_theme_mode(ThemeMode::System);
+        let serialized = serde_json::to_string(&settings).expect("serialize settings");
+        let restored: AppSettings =
+            serde_json::from_str(&serialized).expect("deserialize settings");
+        assert_eq!(restored.theme_mode(), ThemeMode::System);
     }
 }

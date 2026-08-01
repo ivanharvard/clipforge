@@ -13,8 +13,23 @@ rfd.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus.workspace = true
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true
+
 [build-dependencies]
 slint-build.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
+
+[features]
+# Compiles std-widgets against Slint's "qt" style (see build.rs) *and* pulls
+# in the slint crate's own Qt backend, which provides the native item types
+# ("InnerButton::native", etc.) that qt-styled generated code references —
+# the style config alone isn't enough, the runtime needs the matching
+# backend compiled in too.
+qt-style = ["slint/backend-qt"]

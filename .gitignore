@@ -13,5 +13,6 @@ packaging/linux/pacman/pkg/
 packaging/linux/pacman/src/
 *.pkg.tar.zst
 AppDir
+AppDir-kde
 appimage-build
 *.zsync

@@ -46,7 +46,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmpv-dev ffmpeg libfuse2 python3-pip
+          sudo apt-get install -y libmpv-dev ffmpeg libfuse2 python3-pip qt6-base-dev
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -70,7 +70,7 @@ jobs:
     container: archlinux:base-devel
     steps:
       - name: Install build dependencies
-        run: pacman -Syu --noconfirm --needed rustup ffmpeg mpv git
+        run: pacman -Syu --noconfirm --needed rustup ffmpeg mpv qt6-base git
 
       - uses: actions/checkout@v4
 

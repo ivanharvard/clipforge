@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ClipForge (KDE)
+Comment=Quick video clip trimmer, with native KDE Application Style controls
+Exec=clipforge-app %f
+Icon=clipforge
+Categories=AudioVideo;Video;
+MimeType=video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;video/x-m4v;image/gif;
+Terminal=false

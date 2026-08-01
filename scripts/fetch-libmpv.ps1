@@ -7,6 +7,14 @@
 # documented in COMPILING.md (dumpbin -> .def -> lib.exe), which is the
 # actual working path.
 #
+# Fetches from shinchiro/mpv-winbuild-cmake's GitHub Releases rather than the
+# same maintainer's SourceForge mirror (mpv-player-windows) that hosts
+# identical builds: SourceForge silently served a near-empty, single-item
+# feed to a GitHub-hosted runner's IP during testing (near-certainly
+# datacenter-traffic throttling), where GitHub's own API/CDN has no such
+# cross-provider blocking concern for a workflow running on GitHub's own
+# infrastructure.
+#
 # Requires dumpbin.exe and lib.exe on PATH — run this from a Developer
 # PowerShell / after `ilammy/msvc-dev-cmd` in CI.
 $ErrorActionPreference = "Stop"
@@ -23,38 +31,38 @@ if ((Test-Path "$libMpvDir\libmpv-2.dll" -PathType Leaf) -and
 New-Item -ItemType Directory -Force -Path target, $libMpvDir | Out-Null
 
 Write-Host "Looking up the latest libmpv-dev-x86_64 build..."
-$feedUrl = "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv"
-$userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+$releaseUrl = "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest"
+$headers = @{ "User-Agent" = "clipforge-ci" }
+# Use GITHUB_TOKEN when present (any CI run) to get the authenticated rate
+# limit instead of the low unauthenticated one; harmless/no-op when absent.
+if ($env:GITHUB_TOKEN) { $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN" }
 try {
-    # Invoke-RestMethod parses the response as XML itself based on the
-    # returned content-type, instead of a manual [xml] cast on
-    # Invoke-WebRequest's raw .Content — sidesteps encoding/decompression
-    # edge cases that can otherwise leave the cast silently empty.
-    $feed = Invoke-RestMethod -UseBasicParsing -UserAgent $userAgent -Uri $feedUrl
+    $release = Invoke-RestMethod -UseBasicParsing -Uri $releaseUrl -Headers $headers
 } catch {
-    throw "Fetching the mpv-player-windows RSS feed failed: $_"
+    throw "Fetching shinchiro/mpv-winbuild-cmake's latest release failed: $_"
 }
 
-$allItems = @($feed.rss.channel.item)
-Write-Host "Feed returned $($allItems.Count) item(s)."
+$allAssets = @($release.assets)
+Write-Host "Latest release ($($release.tag_name)) has $($allAssets.Count) asset(s)."
 
-# The feed also lists "-v3-" (requires AVX2-era CPUs) and "i686" (32-bit)
-# builds newest-first; this pattern picks the plain x86_64 baseline build so
-# the resulting MSI doesn't silently fail to launch on older CPUs.
-$item = $allItems |
-    Where-Object { $_.title -match '/libmpv/mpv-dev-x86_64-\d{8}-git-[0-9a-f]+\.7z$' } |
+# Also lists "-v3-" (requires AVX2-era CPUs), "i686" (32-bit), "aarch64", and
+# non-dev (runtime-only, no headers/import lib) builds; this pattern picks
+# the plain x86_64 dev baseline build so the resulting MSI doesn't silently
+# fail to launch on older CPUs.
+$asset = $allAssets |
+    Where-Object { $_.name -match '^mpv-dev-x86_64-\d{8}-git-[0-9a-f]+\.7z$' } |
     Select-Object -First 1
-if ($null -eq $item) {
-    Write-Host "First 10 item titles seen:"
-    $allItems | Select-Object -First 10 -ExpandProperty title | ForEach-Object { Write-Host "  $_" }
-    throw "Could not find a libmpv-dev-x86_64 build in the mpv-player-windows RSS feed (see titles logged above)"
+if ($null -eq $asset) {
+    Write-Host "Assets in latest release:"
+    $allAssets | ForEach-Object { Write-Host "  $($_.name)" }
+    throw "Could not find a mpv-dev-x86_64 asset in shinchiro/mpv-winbuild-cmake's latest release (see names logged above)"
 }
 
-$fileName = Split-Path -Leaf $item.title
+$fileName = $asset.name
 $archivePath = "target\$fileName"
 if (-not (Test-Path $archivePath -PathType Leaf)) {
-    Write-Host "Downloading $($item.link)"
-    Invoke-WebRequest -UseBasicParsing -UserAgent $userAgent -Uri $item.link -OutFile $archivePath
+    Write-Host "Downloading $($asset.browser_download_url)"
+    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $archivePath -Headers $headers
 }
 if (-not (Test-Path $archivePath -PathType Leaf) -or (Get-Item $archivePath).Length -eq 0) {
     throw "Download of $fileName produced no file or an empty file"

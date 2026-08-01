@@ -61,16 +61,17 @@ if git rev-parse "$tag" >/dev/null 2>&1; then
   exit 1
 fi
 
-made_commit=false
+echo
+echo "Formatting the workspace..."
+cargo fmt --all
+
 if [ "$new_version" = "$current_version" ]; then
   # Cargo.toml is already at the target version — most likely a previous
   # release attempt's version-bump commit already landed and only the tag
-  # (e.g. because its build failed) got deleted. Nothing to bump or commit;
-  # just tag whatever's at HEAD now.
-  echo
-  echo "Cargo.toml is already at $new_version — tagging the current commit without a new commit."
+  # (e.g. because its build failed) got deleted. Nothing to bump; formatting
+  # above may still have found something to fix, though.
+  echo "Cargo.toml is already at $new_version — no version bump needed."
 else
-  echo
   echo "Bumping $current_version -> $new_version"
   sed -i "0,/^version = \"$current_version\"/s//version = \"$new_version\"/" Cargo.toml
 
@@ -78,8 +79,14 @@ else
   # for them need refreshing too — this touches nothing else since they're
   # path dependencies, not registry ones, so it stays fully offline.
   cargo check --workspace --quiet
+fi
 
-  git add Cargo.toml Cargo.lock
+# Whatever combination of fmt and the version bump actually touched files
+# (either, both, or neither) gets bundled into one commit rather than
+# tracking them separately — there's nothing to gain from two commits here.
+made_commit=false
+if [ -n "$(git status --porcelain)" ]; then
+  git add -A
   git commit -m "Release $tag"
   made_commit=true
 fi

@@ -74,7 +74,11 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
             .collect::<Vec<_>>()
             .join(";");
         filter.push(';');
-        filter.push_str(&(0..track_count).map(|i| format!("[a{i}]")).collect::<String>());
+        filter.push_str(
+            &(0..track_count)
+                .map(|i| format!("[a{i}]"))
+                .collect::<String>(),
+        );
         filter.push_str(&format!(
             "amix=inputs={track_count}:duration=longest:dropout_transition=0[amixed]"
         ));

@@ -99,31 +99,19 @@ Close and reopen PowerShell, then verify:
 dotnet --version
 ```
 
-Install WiX globally:
+Unlike earlier versions of this guide, you do not need to install WiX globally or accept an EULA by hand. `scripts\build-msi.ps1` pins an exact WiX version (currently 4.0.6) and installs it as a *local* .NET tool the first time it runs:
 
 ```powershell
-dotnet tool install --global wix
+dotnet tool install wix --tool-path target\wix\4.0.6 --version 4.0.6
 ```
 
-Permanently add the .NET global-tools directory to the user PATH:
+It skips the install if `target\wix\4.0.6\wix.exe` already exists, so this only happens once per clean `target\` directory. If you want to run `wix` commands by hand, invoke that local copy directly:
 
 ```powershell
-$d="$env:USERPROFILE\.dotnet\tools";$p=[Environment]::GetEnvironmentVariable("Path","User");if(($p-split';')-notcontains$d){[Environment]::SetEnvironmentVariable("Path",($d+';'+$p),"User")}
+target\wix\4.0.6\wix.exe --version
 ```
 
-Close all PowerShell and Windows Terminal windows, reopen Developer PowerShell, and verify:
-
-```powershell
-wix --version
-```
-
-WiX v7 requires acceptance of its OSMF EULA before use:
-
-```powershell
-wix eula accept wix7
-```
-
-Review the current WiX licensing terms before accepting them.
+Pinning the version this way keeps every build (yours and CI's) reproducible regardless of whatever WiX release happens to be current when you install it.
 
 ## 5. Install libmpv
 
@@ -260,7 +248,12 @@ Adapt the component IDs, directory structure, shortcuts, and feature references 
 
 ## 9. Improve the MSI build script
 
-Use a build script similar to the following:
+`scripts\build-msi.ps1` (the real, current version of this script — the one CI also runs) goes a bit further than a minimal build script needs to, for two reasons worth knowing about before you read it:
+
+- **FFmpeg is bundled into the MSI.** ClipForge shells out to `ffmpeg`/`ffprobe` for export and probing, so the installer needs to carry `ffmpeg.exe` and `ffprobe.exe` alongside `clipforge-app.exe`, the same way it carries `libmpv-2.dll`. The script fetches a static LGPL Windows build via `scripts\fetch-ffmpeg.ps1` (skipping the download if `target\ffmpeg\bin` already has it) and copies both executables plus their license into `target\release\` before the WiX build. Set `$env:FFMPEG_DIR` to point at your own FFmpeg `bin\` directory if you'd rather not download one.
+- **WiX is version-pinned and installed locally**, as described in step 4 — no global tool install, no separate EULA step.
+
+The shape of the script:
 
 ```powershell
 # Builds a release binary and packages it as an MSI using WiX.
@@ -270,18 +263,37 @@ Set-Location "$PSScriptRoot\.."
 
 $env:LIB = "C:\libmpv;$env:LIB"
 
+$wixVersion = "4.0.6"
+$wixDir = "target\wix\$wixVersion"
+$wixExe = Join-Path $wixDir "wix.exe"
+if (-not (Test-Path $wixExe -PathType Leaf)) {
+    dotnet tool install wix --tool-path $wixDir --version $wixVersion
+    if ($LASTEXITCODE -ne 0) { throw "WiX $wixVersion installation failed with exit code $LASTEXITCODE" }
+}
+
+$ffmpegDir = if ($env:FFMPEG_DIR) { $env:FFMPEG_DIR } else { "target\ffmpeg\bin" }
+if (-not ((Test-Path "$ffmpegDir\ffmpeg.exe" -PathType Leaf) -and
+          (Test-Path "$ffmpegDir\ffprobe.exe" -PathType Leaf) -and
+          (Test-Path "$ffmpegDir\FFmpeg-LICENSE.txt" -PathType Leaf))) {
+    & "$PSScriptRoot\fetch-ffmpeg.ps1"
+    $ffmpegDir = "target\ffmpeg\bin"
+}
+
 cargo build --release --bin clipforge-app
 if ($LASTEXITCODE -ne 0) { throw "Cargo build failed with exit code $LASTEXITCODE" }
 
-Copy-Item C:\libmpv\libmpv-2.dll .\target\release\ -Force
+Copy-Item C:\libmpv\libmpv-2.dll target\release\libmpv-2.dll -Force
+Copy-Item "$ffmpegDir\ffmpeg.exe" target\release\ffmpeg.exe -Force
+Copy-Item "$ffmpegDir\ffprobe.exe" target\release\ffprobe.exe -Force
+Copy-Item "$ffmpegDir\FFmpeg-LICENSE.txt" target\release\FFmpeg-LICENSE.txt -Force
 
 New-Item -ItemType Directory -Force -Path dist | Out-Null
 
-wix build packaging/windows/clipforge.wxs -out dist/ClipForge.msi
+& $wixExe build -arch x64 packaging/windows/clipforge.wxs -out dist/ClipForge.msi
 if ($LASTEXITCODE -ne 0) { throw "WiX build failed with exit code $LASTEXITCODE" }
 ```
 
-The exit-code checks prevent WiX from packaging a missing or stale executable after a failed Cargo build.
+The exit-code checks prevent WiX from packaging a missing or stale executable after a failed Cargo build. `-arch x64` matters here too, not just for correctness at the WiX level (see the troubleshooting note below) — `clipforge.wxs` must list `ffmpeg.exe`, `ffprobe.exe`, and `FFmpeg-LICENSE.txt` as components alongside `clipforge-app.exe` and `libmpv-2.dll`, or the installed app will play video but fail as soon as you try to export.
 
 ## 10. Build the MSI
 

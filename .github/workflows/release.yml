@@ -1,0 +1,155 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.:
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# Cargo.toml's [workspace.package] version is the single source of truth;
+# verify-version fails the whole run if the pushed tag doesn't match it, so a
+# release can never accidentally ship under the wrong version. Every package
+# recipe (PKGBUILD's pkgver, clipforge.wxs's Version) gets the tag's version
+# stamped in at build time rather than needing to be bumped by hand.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches Cargo.toml version
+        id: extract
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          cargo_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::Tag $tag (version $version) does not match Cargo.toml's workspace version $cargo_version. Bump Cargo.toml's [workspace.package] version to match before tagging."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  linux-appimage:
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmpv-dev ffmpeg libfuse2 python3-pip
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install appimage-builder
+        run: pip install --user appimage-builder
+
+      - name: Build AppImage
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          ./scripts/build-appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/*.AppImage
+
+  linux-pacman:
+    needs: verify-version
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install build dependencies
+        run: pacman -Syu --noconfirm --needed rustup ffmpeg mpv git
+
+      - uses: actions/checkout@v4
+
+      - name: Sync PKGBUILD version with tag
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ needs.verify-version.outputs.version }}/" \
+            packaging/linux/pacman/PKGBUILD
+
+      # makepkg refuses to run as root, and Arch's container images run
+      # everything as root by default, so the checkout above needs handing
+      # off to an unprivileged user before the actual build step.
+      - name: Build pacman package as an unprivileged user
+        run: |
+          useradd -m builder
+          chown -R builder:builder .
+          runuser -u builder -- bash -c '
+            set -euo pipefail
+            rustup default stable
+            ./scripts/build-pacman.sh
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-pacman
+          path: dist/*.pkg.tar.zst
+
+  windows-msi:
+    needs: verify-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Sync WiX version with tag
+        shell: pwsh
+        run: |
+          (Get-Content packaging/windows/clipforge.wxs) `
+            -replace 'Version="[0-9.]+"', 'Version="${{ needs.verify-version.outputs.version }}.0"' |
+            Set-Content packaging/windows/clipforge.wxs
+
+      # Mirrors windows.yml's build-msi job so both stay buildable the same
+      # way; duplicated rather than shared so a release run never breaks
+      # because of an unrelated change to the PR-validation workflow.
+      - name: Build libmpv with vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install mpv:x64-windows
+          New-Item -ItemType Directory -Force C:\libmpv | Out-Null
+          $installed = Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\x64-windows"
+          $library = Get-ChildItem "$installed\lib" -Filter "*mpv*.lib" | Select-Object -First 1
+          $runtime = Get-ChildItem "$installed\bin" -Filter "*mpv*.dll" | Select-Object -First 1
+          if (-not $library -or -not $runtime) { throw "vcpkg did not produce libmpv artifacts" }
+          Copy-Item $library.FullName C:\libmpv\mpv.lib
+          Copy-Item $runtime.FullName C:\libmpv\libmpv-2.dll
+
+      - name: Build MSI
+        shell: pwsh
+        run: .\scripts\build-msi.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-msi
+          path: dist/ClipForge.msi
+
+  publish-release:
+    needs: [verify-version, linux-appimage, linux-pacman, windows-msi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ClipForge ${{ needs.verify-version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            artifacts/linux-appimage/*.AppImage
+            artifacts/linux-pacman/*.pkg.tar.zst
+            artifacts/windows-msi/ClipForge.msi

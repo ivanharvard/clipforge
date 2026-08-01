@@ -1,0 +1,49 @@
+# Maintainer: ClipForge contributors
+#
+# NOT used by anything in this repo (no Makefile target or CI job builds
+# from this file) — it's a template to copy into a separate AUR package
+# git repository (ssh://aur@aur.archlinux.org/clipforge.git), which is
+# where AUR packages actually live. Unlike packaging/linux/pacman/PKGBUILD
+# (which builds from an already-checked-out clone of this repo), an AUR
+# package repo only ever contains PKGBUILD + .SRCINFO, so this one has to
+# download its own copy of the source instead of assuming one exists.
+#
+# Before publishing a new version:
+#   1. Bump pkgver to match the vX.Y.Z tag you're packaging (reset pkgrel to 1).
+#   2. Run `updpkgsums` in this directory to replace the sha256sums placeholder
+#      with the real hash of that tag's source tarball.
+#   3. Run `makepkg --printsrcinfo > .SRCINFO` and commit both files.
+pkgname=clipforge
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Quick single-clip video trimmer"
+arch=('x86_64')
+url="https://github.com/ivanharvard/clipforge"
+license=('MIT')
+depends=('ffmpeg' 'mpv')
+makedepends=('cargo')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/ivanharvard/clipforge/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP') # replace by running `updpkgsums` here once the tag exists
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # AUR's own build tooling disallows network access inside build(); prepare()
+  # still has it, so fetch every crate here and let build() run with --frozen.
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --frozen --release --bin clipforge-app
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  install -Dm644 packaging/linux/appimage/clipforge.desktop \
+    "$pkgdir/usr/share/applications/clipforge.desktop"
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "packaging/shared/icons/clipforge-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/clipforge.png"
+  done
+}

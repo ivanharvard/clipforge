@@ -1,24 +1,47 @@
 # Maintainer: ClipForge contributors
+#
+# This builds directly from an already-checked-out clone (see
+# scripts/build-pacman.sh, which cd's into this directory and runs
+# `makepkg -f` from inside the full monorepo) — used for local packaging
+# and by the release workflow, both of which already have the source
+# checked out. It is NOT the PKGBUILD to submit to the AUR: an AUR package
+# repo never has this project's source lying around, only PKGBUILD itself,
+# so it needs to fetch its own copy of the source instead. See
+# packaging/linux/aur/PKGBUILD for that version.
 pkgname=clipforge
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="Quick single-clip video trimmer"
 arch=('x86_64')
-url="https://github.com/example/clipforge"
+url="https://github.com/ivanharvard/clipforge"
 license=('MIT')
 depends=('ffmpeg' 'mpv')
 makedepends=('cargo')
 source=()
 sha256sums=()
 
+# makepkg sets $startdir to wherever it was *invoked* from, not to this
+# PKGBUILD's own directory — and scripts/build-pacman.sh cd's here first, so
+# $startdir is actually packaging/linux/pacman, not the repo root. `cargo
+# build` doesn't care (it walks up looking for the workspace Cargo.toml
+# regardless of cwd) but a plain relative `install target/release/...` does,
+# so resolve the real repo root explicitly instead of assuming $startdir is it.
+repo_root() {
+  git -C "$startdir" rev-parse --show-toplevel
+}
+
 build() {
-  cd "$startdir"
+  cd "$(repo_root)"
   cargo build --release --bin clipforge-app
 }
 
 package() {
-  cd "$startdir"
+  cd "$(repo_root)"
   install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
   install -Dm644 packaging/linux/appimage/clipforge.desktop \
     "$pkgdir/usr/share/applications/clipforge.desktop"
+  for size in 16 24 32 48 64 128 256 512; do
+    install -Dm644 "packaging/shared/icons/clipforge-${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/clipforge.png"
+  done
 }

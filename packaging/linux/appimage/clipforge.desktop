@@ -5,4 +5,5 @@ Comment=Quick video clip trimmer
 Exec=clipforge-app %f
 Icon=clipforge
 Categories=AudioVideo;Video;
+MimeType=video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;video/x-m4v;image/gif;
 Terminal=false

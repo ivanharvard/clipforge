@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup build run test check fmt fmt-check clippy clean web-bindings web-build web-dev \
-	icons package-appimage package-pacman package-msi install uninstall
+	icons package-appimage package-pacman package-msi install uninstall release
 
 help: ## Show this help
 	@echo "ClipForge — common development tasks"
@@ -70,8 +70,30 @@ install: ## Build a release binary and install it for the current user (Linux)
 	install -Dm755 target/release/clipforge-app "$(HOME)/.local/bin/clipforge-app"
 	install -Dm644 packaging/linux/appimage/clipforge.desktop \
 		"$(HOME)/.local/share/applications/clipforge.desktop"
+	# Desktop launchers (GNOME/KDE menus) don't inherit a login shell's PATH
+	# (fish's fish_user_paths in particular never reaches them), so a bare
+	# `Exec=clipforge-app` resolves fine in a terminal but fails to launch
+	# from the start menu. Only the AppImage build wants the bare command
+	# (its AppRun sets up its own PATH); the user-level install needs the
+	# absolute path baked in.
+	sed -i 's|^Exec=clipforge-app|Exec=$(HOME)/.local/bin/clipforge-app|' \
+		"$(HOME)/.local/share/applications/clipforge.desktop"
+	install -Dm644 packaging/shared/icons/clipforge-256.png \
+		"$(HOME)/.local/share/icons/hicolor/256x256/apps/clipforge.png"
+	install -Dm644 packaging/shared/icons/clipforge-128.png \
+		"$(HOME)/.local/share/icons/hicolor/128x128/apps/clipforge.png"
+	install -Dm644 packaging/shared/icons/clipforge-48.png \
+		"$(HOME)/.local/share/icons/hicolor/48x48/apps/clipforge.png"
+	@update-desktop-database "$(HOME)/.local/share/applications" 2>/dev/null || true
+	@gtk-update-icon-cache "$(HOME)/.local/share/icons/hicolor" 2>/dev/null || true
 	@echo "Installed to $(HOME)/.local/bin/clipforge-app — make sure that's on your PATH."
 
 uninstall: ## Remove the user-level install created by 'make install'
 	rm -f "$(HOME)/.local/bin/clipforge-app"
 	rm -f "$(HOME)/.local/share/applications/clipforge.desktop"
+	rm -f "$(HOME)/.local/share/icons/hicolor/256x256/apps/clipforge.png"
+	rm -f "$(HOME)/.local/share/icons/hicolor/128x128/apps/clipforge.png"
+	rm -f "$(HOME)/.local/share/icons/hicolor/48x48/apps/clipforge.png"
+
+release: ## Bump the version, commit, tag, and push (triggers the release workflow). Pass VERSION=x.y.z to skip the prompt.
+	./scripts/release.sh

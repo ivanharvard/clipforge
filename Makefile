@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup build run test check fmt fmt-check clippy clean web-bindings web-build web-dev \
-	icons package-appimage package-pacman package-msi install uninstall release
+	icons package-appimage package-pacman package-msi install uninstall release undo-release
 
 help: ## Show this help
 	@echo "ClipForge — common development tasks"
@@ -97,3 +97,6 @@ uninstall: ## Remove the user-level install created by 'make install'
 
 release: ## Bump the version, commit, tag, and push (triggers the release workflow). Pass VERSION=x.y.z to skip the prompt.
 	./scripts/release.sh
+
+undo-release: ## Delete a release tag (and its GitHub Release, if one was published). Requires VERSION=x.y.z.
+	./scripts/undo-release.sh

@@ -115,17 +115,12 @@ jobs:
       # Mirrors windows.yml's build-msi job so both stay buildable the same
       # way; duplicated rather than shared so a release run never breaks
       # because of an unrelated change to the PR-validation workflow.
-      - name: Build libmpv with vcpkg
-        shell: pwsh
-        run: |
-          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install mpv:x64-windows
-          New-Item -ItemType Directory -Force C:\libmpv | Out-Null
-          $installed = Join-Path $env:VCPKG_INSTALLATION_ROOT "installed\x64-windows"
-          $library = Get-ChildItem "$installed\lib" -Filter "*mpv*.lib" | Select-Object -First 1
-          $runtime = Get-ChildItem "$installed\bin" -Filter "*mpv*.dll" | Select-Object -First 1
-          if (-not $library -or -not $runtime) { throw "vcpkg did not produce libmpv artifacts" }
-          Copy-Item $library.FullName C:\libmpv\mpv.lib
-          Copy-Item $runtime.FullName C:\libmpv\libmpv-2.dll
+      #
+      # libmpv has never been a vcpkg port (microsoft/vcpkg#9511 was a
+      # request, never fulfilled) — scripts/build-msi.ps1 fetches a prebuilt
+      # libmpv-dev archive itself and converts its MinGW import library to an
+      # MSVC-compatible mpv.lib via dumpbin/lib.exe, which need to be on PATH.
+      - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build MSI
         shell: pwsh

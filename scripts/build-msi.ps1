@@ -8,6 +8,9 @@ $libMpvDir = "C:\libmpv"
 $libMpvImportLibrary = Join-Path $libMpvDir "mpv.lib"
 $libMpvDll = Join-Path $libMpvDir "libmpv-2.dll"
 
+if (-not ((Test-Path $libMpvImportLibrary -PathType Leaf) -and (Test-Path $libMpvDll -PathType Leaf))) {
+    & "$PSScriptRoot\fetch-libmpv.ps1"
+}
 if (-not (Test-Path $libMpvImportLibrary -PathType Leaf)) {
     throw "libmpv import library not found at $libMpvImportLibrary"
 }

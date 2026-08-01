@@ -108,9 +108,17 @@ jobs:
       - name: Sync WiX version with tag
         shell: pwsh
         run: |
-          (Get-Content packaging/windows/clipforge.wxs) `
-            -replace 'Version="[0-9.]+"', 'Version="${{ needs.verify-version.outputs.version }}.0"' |
-            Set-Content packaging/windows/clipforge.wxs
+          # Get-Content (without -Raw) splits into lines and Set-Content
+          # (without an explicit encoding) can reintroduce a UTF-8 BOM the
+          # original file doesn't have — corrupting the XML declaration on
+          # line 1 just enough that WiX's parser rejects it (WIX0104) while
+          # PowerShell itself reports no error, since Set-Content doesn't
+          # validate XML. -Raw/-NoNewline/-Encoding utf8NoBOM keep this a
+          # byte-for-byte substitution instead.
+          $path = "packaging/windows/clipforge.wxs"
+          $content = Get-Content -Raw -Encoding utf8NoBOM -Path $path
+          $content = $content -replace 'Version="[0-9.]+"', 'Version="${{ needs.verify-version.outputs.version }}.0"'
+          Set-Content -NoNewline -Encoding utf8NoBOM -Path $path -Value $content
 
       # Mirrors windows.yml's build-msi job so both stay buildable the same
       # way; duplicated rather than shared so a release run never breaks

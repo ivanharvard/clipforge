@@ -23,23 +23,41 @@ if ((Test-Path "$libMpvDir\libmpv-2.dll" -PathType Leaf) -and
 New-Item -ItemType Directory -Force -Path target, $libMpvDir | Out-Null
 
 Write-Host "Looking up the latest libmpv-dev-x86_64 build..."
-[xml]$feed = (Invoke-WebRequest -UseBasicParsing "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv").Content
+$feedUrl = "https://sourceforge.net/projects/mpv-player-windows/rss?path=/libmpv"
+$userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+try {
+    # Invoke-RestMethod parses the response as XML itself based on the
+    # returned content-type, instead of a manual [xml] cast on
+    # Invoke-WebRequest's raw .Content — sidesteps encoding/decompression
+    # edge cases that can otherwise leave the cast silently empty.
+    $feed = Invoke-RestMethod -UseBasicParsing -UserAgent $userAgent -Uri $feedUrl
+} catch {
+    throw "Fetching the mpv-player-windows RSS feed failed: $_"
+}
+
+$allItems = @($feed.rss.channel.item)
+Write-Host "Feed returned $($allItems.Count) item(s)."
 
 # The feed also lists "-v3-" (requires AVX2-era CPUs) and "i686" (32-bit)
 # builds newest-first; this pattern picks the plain x86_64 baseline build so
 # the resulting MSI doesn't silently fail to launch on older CPUs.
-$item = $feed.rss.channel.item |
+$item = $allItems |
     Where-Object { $_.title -match '/libmpv/mpv-dev-x86_64-\d{8}-git-[0-9a-f]+\.7z$' } |
     Select-Object -First 1
 if ($null -eq $item) {
-    throw "Could not find a libmpv-dev-x86_64 build in the mpv-player-windows RSS feed"
+    Write-Host "First 10 item titles seen:"
+    $allItems | Select-Object -First 10 -ExpandProperty title | ForEach-Object { Write-Host "  $_" }
+    throw "Could not find a libmpv-dev-x86_64 build in the mpv-player-windows RSS feed (see titles logged above)"
 }
 
 $fileName = Split-Path -Leaf $item.title
 $archivePath = "target\$fileName"
 if (-not (Test-Path $archivePath -PathType Leaf)) {
     Write-Host "Downloading $($item.link)"
-    Invoke-WebRequest -UseBasicParsing $item.link -OutFile $archivePath
+    Invoke-WebRequest -UseBasicParsing -UserAgent $userAgent -Uri $item.link -OutFile $archivePath
+}
+if (-not (Test-Path $archivePath -PathType Leaf) -or (Get-Item $archivePath).Length -eq 0) {
+    throw "Download of $fileName produced no file or an empty file"
 }
 
 $extractPath = "target\libmpv-package"

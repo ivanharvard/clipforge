@@ -108,16 +108,18 @@ jobs:
       - name: Sync WiX version with tag
         shell: pwsh
         run: |
-          # Get-Content (without -Raw) splits into lines and Set-Content
-          # (without an explicit encoding) can reintroduce a UTF-8 BOM the
-          # original file doesn't have — corrupting the XML declaration on
-          # line 1 just enough that WiX's parser rejects it (WIX0104) while
-          # PowerShell itself reports no error, since Set-Content doesn't
-          # validate XML. -Raw/-NoNewline/-Encoding utf8NoBOM keep this a
-          # byte-for-byte substitution instead.
+          # PowerShell's -replace is case-INSENSITIVE by default, so this
+          # was also matching line 1's XML declaration (`<?xml version="1.0"
+          # ...?>` — lowercase "version" is required there by the XML spec)
+          # and corrupting it to `Version="1.0.0.0"`, which WiX's parser
+          # rejects (WIX0104, "line 1 position 7" — exactly where "version"
+          # starts) while PowerShell itself reports no error, since
+          # Set-Content doesn't validate XML. -creplace is case-sensitive,
+          # so it only touches the WiX <Package Version="..."> attribute,
+          # which really is capitalized.
           $path = "packaging/windows/clipforge.wxs"
           $content = Get-Content -Raw -Encoding utf8NoBOM -Path $path
-          $content = $content -replace 'Version="[0-9.]+"', 'Version="${{ needs.verify-version.outputs.version }}.0"'
+          $content = $content -creplace 'Version="[0-9.]+"', 'Version="${{ needs.verify-version.outputs.version }}.0"'
           Set-Content -NoNewline -Encoding utf8NoBOM -Path $path -Value $content
 
       # Mirrors windows.yml's build-msi job so both stay buildable the same

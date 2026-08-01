@@ -9,4 +9,7 @@ export default defineConfig({
     outDir: "../dist/web",
     emptyOutDir: true,
   },
+  test: {
+    setupFiles: ["./vitest.setup.ts"],
+  },
 });

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::project::Project;
 
 use super::ffmpeg_args::build_export_args;
+use super::hardware::HardwareEncoders;
 
 /// A fully-specified export: the ffmpeg arguments to run and the
 /// destination path, derived once from a [`Project`] snapshot so the
@@ -24,8 +25,8 @@ impl ExportJob {
         directory.join(format!("{stem} (clipforge).mp4"))
     }
 
-    pub fn from_project(project: &Project, output_path: PathBuf) -> Self {
-        let ffmpeg_args = build_export_args(project, &output_path);
+    pub fn from_project(project: &Project, output_path: PathBuf, hardware: HardwareEncoders) -> Self {
+        let ffmpeg_args = build_export_args(project, &output_path, hardware);
         ExportJob {
             output_path,
             ffmpeg_args,
@@ -87,7 +88,7 @@ mod tests {
             1080,
             ClipBounds::full_range(Timestamp::from_ms(5_000)),
         );
-        let job = ExportJob::from_project(&project, PathBuf::from("/tmp/out.mp4"));
+        let job = ExportJob::from_project(&project, PathBuf::from("/tmp/out.mp4"), HardwareEncoders::default());
         assert_eq!(job.ffmpeg_args.last(), Some(&"/tmp/out.mp4".to_string()));
     }
 
@@ -113,7 +114,7 @@ mod tests {
             1080,
             ClipBounds::full_range(Timestamp::from_ms(5_000)),
         );
-        let mut job = ExportJob::from_project(&project, PathBuf::from("/tmp/out.mp4"));
+        let mut job = ExportJob::from_project(&project, PathBuf::from("/tmp/out.mp4"), HardwareEncoders::default());
         let bitrate_index = job
             .ffmpeg_args
             .iter()

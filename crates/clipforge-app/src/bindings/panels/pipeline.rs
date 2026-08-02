@@ -31,9 +31,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 return;
             };
             app_state.push_undo_snapshot();
+            let hardware = app_state.hardware_encoders;
             if let Some(project) = &mut app_state.project {
                 project.set_tool_enabled(kind, enabled);
-                crate::bindings::sync_all_panels_from_project(&app, project);
+                crate::bindings::sync_all_panels_from_project(&app, project, hardware);
             }
             let _ = app_state.apply_project_preview();
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
@@ -55,9 +56,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 return;
             };
             app_state.push_undo_snapshot();
+            let hardware = app_state.hardware_encoders;
             if let Some(project) = &mut app_state.project {
                 project.move_tool(kind, destination.max(0) as usize);
-                crate::bindings::sync_all_panels_from_project(&app, project);
+                crate::bindings::sync_all_panels_from_project(&app, project, hardware);
             }
             let _ = app_state.apply_project_preview();
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
@@ -78,9 +80,10 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             let Some(kind) = kind_at(&app_state, index) else {
                 return;
             };
+            let hardware = app_state.hardware_encoders;
             if let Some(project) = &mut app_state.project {
                 project.set_tool_expanded(kind, expanded);
-                crate::bindings::sync_all_panels_from_project(&app, project);
+                crate::bindings::sync_all_panels_from_project(&app, project, hardware);
             }
         });
     }

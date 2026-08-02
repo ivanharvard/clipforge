@@ -20,28 +20,44 @@ fn compression_from_ui(app: &App) -> CoreCompressState {
         1 => VideoCodec::Av1,
         _ => VideoCodec::H264,
     };
+    let mode = match ui.get_mode_index() {
+        1 => QualityMode::BitrateKbps(ui.get_target_bitrate_kbps().max(1) as u32),
+        2 => QualityMode::Crf(ui.get_crf_value().clamp(0, 51) as u8),
+        _ => QualityMode::TargetSizeMb(ui.get_target_size_mb().max(1) as f64),
+    };
     CoreCompressState {
-        mode: QualityMode::TargetSizeMb(ui.get_target_size_mb().max(1) as f64),
+        mode,
         frame_rate_limit,
         codec,
         extra_quality: ui.get_extra_quality(),
         tolerance_percent: ui.get_tolerance_percent().clamp(0, 100) as u8,
+        use_hardware_encoding: ui.get_use_hardware_encoding(),
     }
 }
 
-fn update_summary(app: &App) {
+fn update_summary(app: &App, state: &Rc<RefCell<AppState>>) {
     let compression = compression_from_ui(app);
-    let target = compression.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    let minimum =
-        compression.minimum_target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    app.global::<CompressState>()
-        .set_estimated_size_text(format!("Target after trim: {minimum:.1}-{target:.0} MiB").into());
+    let (selected_duration_secs, hardware) = {
+        let app_state = state.borrow();
+        let duration = app_state
+            .project
+            .as_ref()
+            .map(|project| project.clip_bounds.selected_duration().as_secs_f64())
+            .unwrap_or(0.0);
+        (duration, app_state.hardware_encoders)
+    };
+    let ui = app.global::<CompressState>();
+    ui.set_estimated_size_text(compression.estimate_text(selected_duration_secs).into());
+    ui.set_hardware_status_text(compression.hardware_status_text(hardware).into());
 }
 
 pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
     let compress = app.global::<CompressState>();
     compress.set_apply_to_all(state.borrow().settings.compression_apply_all);
-    update_summary(app);
+    let hardware = state.borrow().hardware_encoders;
+    compress.set_nvenc_h264_available(hardware.h264_nvenc);
+    compress.set_nvenc_av1_available(hardware.av1_nvenc);
+    update_summary(app, state);
 
     {
         let app_weak = app.as_weak();
@@ -61,7 +77,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 let _ = app_state.apply_project_preview();
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
             }
-            update_summary(&app);
+            update_summary(&app, &state);
         });
     }
 

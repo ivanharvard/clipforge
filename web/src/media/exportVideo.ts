@@ -11,6 +11,7 @@ let ffmpegInstance: FFmpeg | null = null;
 let loaded = false;
 let operationTail: Promise<void> = Promise.resolve();
 const audioPreviewCache = new Map<number, Map<string, string>>();
+const revokedClipIds = new Set<number>();
 
 interface ExportCallbacks {
   onPhase: (message: string) => void;
@@ -160,6 +161,10 @@ export async function prepareAudioPreview(
       const data = await engine.readFile(outputName);
       if (typeof data === "string") throw new Error("The audio engine returned unexpected text output");
       const url = URL.createObjectURL(new Blob([new Uint8Array(data)], { type: "audio/mp4" }));
+      if (revokedClipIds.has(clipId)) {
+        URL.revokeObjectURL(url);
+        throw new Error("clip was removed before its audio preview finished generating");
+      }
       let clipCache = audioPreviewCache.get(clipId);
       if (!clipCache) {
         clipCache = new Map();
@@ -174,6 +179,7 @@ export async function prepareAudioPreview(
 }
 
 export function revokeAudioPreviews(clipId: number) {
+  revokedClipIds.add(clipId);
   const cache = audioPreviewCache.get(clipId);
   if (!cache) return;
   for (const url of cache.values()) URL.revokeObjectURL(url);

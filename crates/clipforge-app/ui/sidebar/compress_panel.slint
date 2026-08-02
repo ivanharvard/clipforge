@@ -3,7 +3,9 @@ import { Theme } from "../theme.slint";
 import { CompressState } from "../state.slint";
 import { PanelSection } from "../components/panel_section.slint";
 import { GroupLabel } from "../components/group_label.slint";
-import { ComboBox, SpinBox, CheckBox } from "std-widgets.slint";
+import { RadioOption } from "../components/radio_option.slint";
+import { WrappingCheckBox } from "../components/wrapping_checkbox.slint";
+import { ComboBox, SpinBox } from "std-widgets.slint";
 
 export component CompressPanel inherits PanelSection {
     title: "Compress";
@@ -16,9 +18,40 @@ export component CompressPanel inherits PanelSection {
         wrap: word-wrap;
     }
 
-    GroupLabel { text: "TARGET SIZE"; }
+    WrappingCheckBox {
+        text: "Advanced quality controls";
+        checked: CompressState.advanced-mode;
+        toggled => {
+            CompressState.advanced-mode = !CompressState.advanced-mode;
+            if (!CompressState.advanced-mode) {
+                CompressState.mode-index = 0;
+            }
+            CompressState.settings-changed();
+        }
+    }
 
-    HorizontalLayout {
+    if CompressState.advanced-mode: VerticalLayout {
+        spacing: Theme.space-1;
+
+        RadioOption {
+            label: "Target size (MiB)";
+            selected: CompressState.mode-index == 0;
+            clicked => { CompressState.mode-index = 0; CompressState.settings-changed(); }
+        }
+        RadioOption {
+            label: "Target bitrate (kbps)";
+            selected: CompressState.mode-index == 1;
+            clicked => { CompressState.mode-index = 1; CompressState.settings-changed(); }
+        }
+        RadioOption {
+            label: "Quality (CRF)";
+            selected: CompressState.mode-index == 2;
+            clicked => { CompressState.mode-index = 2; CompressState.settings-changed(); }
+        }
+    }
+
+    if CompressState.mode-index == 0: GroupLabel { text: "TARGET SIZE"; }
+    if CompressState.mode-index == 0: HorizontalLayout {
         spacing: Theme.space-2;
         cross-axis-alignment: center;
 
@@ -35,6 +68,54 @@ export component CompressPanel inherits PanelSection {
 
         Text {
             text: "MiB";
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    if CompressState.mode-index == 1: GroupLabel { text: "TARGET BITRATE"; }
+    if CompressState.mode-index == 1: HorizontalLayout {
+        spacing: Theme.space-2;
+        cross-axis-alignment: center;
+
+        SpinBox {
+            horizontal-stretch: 1;
+            minimum: 100;
+            maximum: 200000;
+            value: CompressState.target-bitrate-kbps;
+            edited(value) => {
+                CompressState.target-bitrate-kbps = value;
+                CompressState.settings-changed();
+            }
+        }
+
+        Text {
+            text: "kbps";
+            color: Theme.text-secondary;
+            font-size: Theme.text-xs;
+            vertical-alignment: center;
+        }
+    }
+
+    if CompressState.mode-index == 2: GroupLabel { text: "QUALITY (CRF)"; }
+    if CompressState.mode-index == 2: HorizontalLayout {
+        spacing: Theme.space-2;
+        cross-axis-alignment: center;
+
+        SpinBox {
+            horizontal-stretch: 1;
+            minimum: 0;
+            maximum: 51;
+            value: CompressState.crf-value;
+            edited(value) => {
+                CompressState.crf-value = value;
+                CompressState.settings-changed();
+            }
+        }
+
+        Text {
+            text: "0 = best, 51 = smallest";
             color: Theme.text-secondary;
             font-size: Theme.text-xs;
             vertical-alignment: center;
@@ -68,34 +149,82 @@ export component CompressPanel inherits PanelSection {
 
     GroupLabel { text: "ENCODING OPTIONS"; }
 
-    ComboBox {
-        model: CompressState.codec-options;
-        current-index: CompressState.codec-index;
-        selected(_) => {
-            CompressState.codec-index = self.current-index;
-            CompressState.settings-changed();
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        cross-axis-alignment: center;
+
+        ComboBox {
+            horizontal-stretch: 1;
+            model: CompressState.codec-options;
+            current-index: CompressState.codec-index;
+            selected(_) => {
+                CompressState.codec-index = self.current-index;
+                CompressState.settings-changed();
+            }
+        }
+
+        // Small indicator: is NVENC hardware encoding available on this
+        // machine for the codec currently selected above?
+        if (CompressState.codec-index == 1 ? CompressState.nvenc-av1-available : CompressState.nvenc-h264-available): Rectangle {
+            height: 20px;
+            border-radius: Theme.radius-control;
+            background: Theme.accent.with-alpha(0.16);
+
+            HorizontalLayout {
+                padding-left: Theme.space-2;
+                padding-right: Theme.space-2;
+
+                Text {
+                    text: "NVENC";
+                    color: Theme.accent;
+                    font-size: 10px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
         }
     }
 
-    CheckBox {
+    WrappingCheckBox {
         text: "Extra quality (slower)";
         checked: CompressState.extra-quality;
         toggled => {
-            CompressState.extra-quality = self.checked;
+            CompressState.extra-quality = !CompressState.extra-quality;
             CompressState.settings-changed();
         }
     }
 
-    GroupLabel { text: "BELOW-TARGET TOLERANCE"; }
+    WrappingCheckBox {
+        text: "Use hardware encoding (NVENC) when available";
+        checked: CompressState.use-hardware-encoding;
+        toggled => {
+            CompressState.use-hardware-encoding = !CompressState.use-hardware-encoding;
+            CompressState.settings-changed();
+        }
+    }
+
+    Text {
+        text: CompressState.hardware-status-text;
+        color: Theme.text-secondary;
+        font-size: Theme.text-xs;
+        wrap: word-wrap;
+    }
+
+    GroupLabel {
+        text: "BELOW-TARGET TOLERANCE";
+        opacity: CompressState.mode-index == 0 ? 1.0 : 0.45;
+    }
 
     HorizontalLayout {
         spacing: Theme.space-2;
         cross-axis-alignment: center;
+        opacity: CompressState.mode-index == 0 ? 1.0 : 0.45;
 
         SpinBox {
             horizontal-stretch: 1;
             minimum: 0;
             maximum: 100;
+            enabled: CompressState.mode-index == 0;
             value: CompressState.tolerance-percent;
             edited(value) => {
                 CompressState.tolerance-percent = value;
@@ -116,14 +245,15 @@ export component CompressPanel inherits PanelSection {
         color: Theme.text-secondary;
         font-size: Theme.text-xs;
         wrap: word-wrap;
+        opacity: CompressState.mode-index == 0 ? 1.0 : 0.45;
     }
 
-    CheckBox {
+    WrappingCheckBox {
         text: "Apply to all queued videos";
         checked: CompressState.apply-to-all;
         toggled => {
-            CompressState.apply-to-all = self.checked;
-            CompressState.apply-to-all-changed(self.checked);
+            CompressState.apply-to-all = !CompressState.apply-to-all;
+            CompressState.apply-to-all-changed(CompressState.apply-to-all);
         }
     }
 }

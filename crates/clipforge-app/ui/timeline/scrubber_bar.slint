@@ -93,6 +93,9 @@ export component ScrubberBar inherits Rectangle {
                                 PlaybackState.seek-requested(self.pressed-x / self.width);
                             }
                         } else if (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                            if (track.drag-target == 3) {
+                                PlaybackState.seek-committed(self.mouse-x / self.width);
+                            }
                             track.drag-target = 0;
                         }
                     }

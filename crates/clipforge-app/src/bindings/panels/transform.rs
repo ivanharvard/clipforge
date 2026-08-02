@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use clipforge_core::ToolKind;
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
@@ -24,6 +25,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     .set_rotation_degrees(i32::from(project.transform.rotation()));
             }
             let _ = app_state.apply_project_preview();
+            app_state.record_tool_default(ToolKind::Transform);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -43,6 +45,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     .set_rotation_degrees(i32::from(project.transform.rotation()));
             }
             let _ = app_state.apply_project_preview();
+            app_state.record_tool_default(ToolKind::Transform);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -63,6 +66,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 project.transform.flip_horizontal = !project.transform.flip_horizontal;
                 let h = project.transform.flip_horizontal;
                 let _ = app_state.apply_project_preview();
+                app_state.record_tool_default(ToolKind::Transform);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 h
             };
@@ -86,6 +90,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 project.transform.flip_vertical = !project.transform.flip_vertical;
                 let v = project.transform.flip_vertical;
                 let _ = app_state.apply_project_preview();
+                app_state.record_tool_default(ToolKind::Transform);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 v
             };
@@ -100,20 +105,23 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
-            {
+            let default = {
                 let mut app_state = state.borrow_mut();
                 app_state.push_undo_snapshot();
+                let default = app_state.resolve_transform_default();
                 let Some(project) = &mut app_state.project else {
                     return;
                 };
-                project.transform.reset();
+                project.transform = default;
                 let _ = app_state.apply_project_preview();
+                app_state.record_tool_default(ToolKind::Transform);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
-            }
+                default
+            };
             let transform = app.global::<TransformState>();
-            transform.set_flip_horizontal(false);
-            transform.set_flip_vertical(false);
-            transform.set_rotation_degrees(0);
+            transform.set_flip_horizontal(default.flip_horizontal);
+            transform.set_flip_vertical(default.flip_vertical);
+            transform.set_rotation_degrees(i32::from(default.rotation()));
         });
     }
 }

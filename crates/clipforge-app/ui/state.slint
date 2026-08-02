@@ -28,6 +28,10 @@ export global PlaybackState {
 
     callback play-pause-clicked();
     callback seek-requested(float);
+    // Fired once on pointer release after a scrub drag (or a plain click)
+    // to request a precise, frame-accurate seek — seek-requested fires
+    // continuously during the drag for cheap live feedback instead.
+    callback seek-committed(float);
     callback in-point-drag-requested(float);
     callback out-point-drag-requested(float);
     callback in-point-text-submitted(string);
@@ -97,6 +101,13 @@ export global AudioState {
 
 export global CompressState {
     in-out property <int> target-size-mb: 10;
+    // Whether the advanced quality-mode picker (below) is shown at all;
+    // off, the panel always behaves as Target Size mode.
+    in-out property <bool> advanced-mode: false;
+    // 0 = Target Size (MiB), 1 = Target Bitrate (kbps), 2 = CRF (quality).
+    in-out property <int> mode-index: 0;
+    in-out property <int> target-bitrate-kbps: 8000;
+    in-out property <int> crf-value: 23;
     in property <[string]> frame-rate-options: ["Automatic", "30 FPS", "60 FPS"];
     in-out property <int> frame-rate-index: 0;
     in property <[string]> codec-options: ["H.264", "AV1"];
@@ -105,6 +116,13 @@ export global CompressState {
     in-out property <int> tolerance-percent: 25;
     in-out property <string> estimated-size-text: "estimate unavailable";
     in-out property <bool> apply-to-all: true;
+    in-out property <bool> use-hardware-encoding: false;
+    // Set once from Rust at startup, from a one-time `ffmpeg -encoders`
+    // probe — true when this machine's ffmpeg build reports the given
+    // NVENC encoder as available.
+    in property <bool> nvenc-h264-available: false;
+    in property <bool> nvenc-av1-available: false;
+    in-out property <string> hardware-status-text: "";
 
     callback settings-changed();
     callback apply-to-all-changed(bool);
@@ -154,6 +172,9 @@ export global ExportDialogState {
     in-out property <string> destination-path: "";
     in-out property <float> progress: 0;
     in-out property <string> result-message: "";
+    // Set by Rust before showing the dialog, based on which button the
+    // user clicked (Export This Video vs Export All).
+    in-out property <bool> export-current-only: false;
 
     callback browse-clicked();
     callback start-clicked();
@@ -163,6 +184,8 @@ export global ExportDialogState {
 
 export global AppearanceState {
     in-out property <bool> visible: false;
+    // 0 = Appearance tab, 1 = Defaults (persistence) tab.
+    in-out property <int> active-tab: 0;
     // 0 = Dark, 1 = Light, 2 = Match System.
     in-out property <int> theme-mode-index: 0;
     // Set once from Rust at startup — true only in a build compiled with
@@ -175,4 +198,18 @@ export global AppearanceState {
     callback theme-mode-selected(int);
     callback open-requested();
     callback close-clicked();
+}
+
+export struct ToolPersistenceRow {
+    kind: string,
+    label: string,
+    // 0 = persists across app restart, 1 = persists to new videos this
+    // session only, 2 = never persists (always the built-in default).
+    mode-index: int,
+}
+
+export global PersistenceSettingsState {
+    in-out property <[ToolPersistenceRow]> rows: [];
+
+    callback mode-selected(string, int);
 }

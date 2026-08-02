@@ -1,11 +1,14 @@
 use std::path::PathBuf;
 
+use clipforge_core::export::HardwareEncoders;
+use clipforge_core::panels::{CropDefault, CropState, TransformState};
 use clipforge_core::timeline::{ClipBounds, Timestamp};
-use clipforge_core::Project;
+use clipforge_core::{Project, ToolKind};
 use clipforge_player::{PlayerContext, SwRenderContext};
 
 use crate::recovery::{self, RecoverySnapshot};
-use crate::settings::AppSettings;
+use crate::settings::{AppSettings, PersistenceMode};
+use crate::tool_defaults::ToolDefaults;
 
 /// Undo history depth cap — `Project` snapshots are small (a handful of
 /// `Copy`-ish sub-structs), so this is generous headroom rather than a
@@ -39,10 +42,34 @@ pub struct AppState {
     pub player: PlayerContext,
     pub render_ctx: SwRenderContext,
     pub settings: AppSettings,
+    pub hardware_encoders: HardwareEncoders,
+    tool_defaults: ToolDefaults,
     queue: Vec<QueueItem>,
     active_queue_index: Option<usize>,
     undo_stack: Vec<Project>,
     redo_stack: Vec<Project>,
+}
+
+/// Seeds the session's "last used" tool values from persisted settings, for
+/// whichever tools are configured to survive an app restart.
+fn seed_tool_defaults(settings: &AppSettings) -> ToolDefaults {
+    let mut defaults = ToolDefaults::default();
+    if settings.persistence_mode(ToolKind::Compress) == PersistenceMode::OnAppReset {
+        defaults.compress = Some(settings.compression());
+    }
+    if settings.persistence_mode(ToolKind::Transform) == PersistenceMode::OnAppReset {
+        defaults.transform = Some(settings.transform_default());
+    }
+    if settings.persistence_mode(ToolKind::Crop) == PersistenceMode::OnAppReset {
+        defaults.crop = settings.crop_default();
+    }
+    if settings.persistence_mode(ToolKind::Resolution) == PersistenceMode::OnAppReset {
+        defaults.resolution = settings.resolution_default();
+    }
+    if settings.persistence_mode(ToolKind::Audio) == PersistenceMode::OnAppReset {
+        defaults.audio = Some(settings.audio_default());
+    }
+    defaults
 }
 
 impl AppState {
@@ -50,11 +77,14 @@ impl AppState {
         let player = PlayerContext::new()?;
         let render_ctx = SwRenderContext::new(&player)?;
         let settings = AppSettings::load();
+        let tool_defaults = seed_tool_defaults(&settings);
         let mut state = AppState {
             project: None,
             player,
             render_ctx,
             settings,
+            hardware_encoders: HardwareEncoders::probe(),
+            tool_defaults,
             queue: Vec::new(),
             active_queue_index: None,
             undo_stack: Vec::new(),
@@ -70,15 +100,6 @@ impl AppState {
                 })
                 .map(QueueItem::new)
                 .collect();
-            let default_compression = state.settings.compression();
-            for item in &mut state.queue {
-                if !matches!(
-                    item.project.compress.mode,
-                    clipforge_core::panels::QualityMode::TargetSizeMb(_)
-                ) {
-                    item.project.compress = default_compression;
-                }
-            }
             if !state.queue.is_empty() {
                 let index = snapshot.active_index.min(state.queue.len() - 1);
                 if state.activate_queue_item(index).is_err() {
@@ -103,10 +124,115 @@ impl AppState {
         let mut project = Project::new(path, width, height, bounds);
         project.source_frame_rate = frame_rate;
         project.audio_tracks = info.audio;
-        project.compress = self.settings.compression();
+        self.apply_tool_defaults(&mut project);
         self.queue.push(QueueItem::new(project));
         self.save_recovery_snapshot();
         Ok(self.queue.len() - 1)
+    }
+
+    /// Applies every tool's current "last used" default (per its configured
+    /// [`PersistenceMode`]) to a freshly-created project. Tools with no
+    /// recorded default (mode is `Never`, or nothing's been edited yet this
+    /// session) are left at `Project::new`'s own hardcoded defaults.
+    fn apply_tool_defaults(&self, project: &mut Project) {
+        if let Some(value) = self.tool_defaults.compress {
+            project.compress = value;
+        }
+        if let Some(value) = self.tool_defaults.transform {
+            project.transform = value;
+        }
+        if let Some(value) = &self.tool_defaults.crop {
+            project.crop = value.resolve(project.source_width, project.source_height);
+        }
+        if let Some(value) = self.tool_defaults.resolution {
+            project.resolution = value;
+        }
+        if let Some(value) = &self.tool_defaults.audio {
+            project.audio = value.as_default_for_new_source();
+        }
+    }
+
+    /// Updates the in-memory "last used" cache for `kind` from the active
+    /// project, without touching disk. Cheap enough to call on every event
+    /// of a continuous interaction (e.g. a crop-rectangle drag); pair with
+    /// [`Self::record_tool_default`] at a settled point (drag release,
+    /// discrete toggle) to actually persist it for `OnAppReset` tools.
+    /// No-op with no active project or when the mode is `Never`.
+    pub fn record_tool_default_in_memory(&mut self, kind: ToolKind) -> bool {
+        let Some(project) = self.project.clone() else {
+            return false;
+        };
+        if self.settings.persistence_mode(kind) == PersistenceMode::Never {
+            return false;
+        }
+        match kind {
+            ToolKind::Transform => self.tool_defaults.transform = Some(project.transform),
+            ToolKind::Crop => {
+                self.tool_defaults.crop = Some(CropDefault::from_state(
+                    &project.crop,
+                    project.source_width,
+                    project.source_height,
+                ));
+            }
+            ToolKind::Resolution => self.tool_defaults.resolution = Some(project.resolution),
+            ToolKind::Audio => self.tool_defaults.audio = Some(project.audio.clone()),
+            ToolKind::Compress => self.tool_defaults.compress = Some(project.compress),
+        }
+        true
+    }
+
+    /// Snapshots `kind`'s current value on the active project into the
+    /// session/persisted "last used" layer, per its configured
+    /// [`PersistenceMode`], including a `settings.json` write when the mode
+    /// is `OnAppReset`. No-op with no active project or when the mode is
+    /// `Never`. For continuous interactions (drags), prefer
+    /// [`Self::record_tool_default_in_memory`] during the drag and call
+    /// this once the interaction settles, to avoid writing to disk on
+    /// every intermediate event.
+    pub fn record_tool_default(&mut self, kind: ToolKind) {
+        if !self.record_tool_default_in_memory(kind) {
+            return;
+        }
+        if self.settings.persistence_mode(kind) != PersistenceMode::OnAppReset {
+            return;
+        }
+        let Some(project) = self.project.clone() else {
+            return;
+        };
+        match kind {
+            ToolKind::Transform => self.settings.set_transform_default(project.transform),
+            ToolKind::Crop => {
+                if let Some(default) = self.tool_defaults.crop {
+                    self.settings.set_crop_default(default);
+                }
+            }
+            ToolKind::Resolution => self.settings.set_resolution_default(project.resolution),
+            ToolKind::Audio => self.settings.set_audio_default(project.audio.clone()),
+            ToolKind::Compress => self.settings.set_compression(project.compress),
+        }
+        self.save_settings();
+    }
+
+    pub fn set_persistence_mode(&mut self, kind: ToolKind, mode: PersistenceMode) {
+        self.settings.set_persistence_mode(kind, mode);
+        if mode != PersistenceMode::Never {
+            self.record_tool_default(kind);
+        }
+        self.save_settings();
+    }
+
+    /// The value a tool's Reset action should restore: the session/persisted
+    /// default when one's been recorded (per its `PersistenceMode`), else
+    /// the tool's hardcoded built-in default.
+    pub fn resolve_transform_default(&self) -> TransformState {
+        self.tool_defaults.transform.unwrap_or_default()
+    }
+
+    pub fn resolve_crop_default(&self, source_width: u32, source_height: u32) -> CropState {
+        match &self.tool_defaults.crop {
+            Some(default) => default.resolve(source_width, source_height),
+            None => CropState::full_frame(source_width, source_height),
+        }
     }
 
     pub fn activate_queue_item(&mut self, index: usize) -> anyhow::Result<()> {
@@ -169,6 +295,7 @@ impl AppState {
         self.queue.remove(index);
 
         if self.queue.is_empty() {
+            let _ = self.player.pause();
             recovery::clear();
             return Ok(None);
         }
@@ -217,7 +344,6 @@ impl AppState {
     }
 
     pub fn update_compression(&mut self, compression: clipforge_core::panels::CompressState) {
-        self.settings.set_compression(compression);
         if self.settings.compression_apply_all {
             for item in &mut self.queue {
                 item.project.compress = compression;
@@ -226,7 +352,7 @@ impl AppState {
         if let Some(project) = &mut self.project {
             project.compress = compression;
         }
-        self.save_settings();
+        self.record_tool_default(ToolKind::Compress);
     }
 
     pub fn set_theme_mode(&mut self, mode: crate::settings::ThemeMode) {
@@ -245,7 +371,7 @@ impl AppState {
             for item in &mut self.queue {
                 item.project.compress = compression;
             }
-            self.settings.set_compression(compression);
+            self.record_tool_default(ToolKind::Compress);
         }
         self.save_settings();
     }

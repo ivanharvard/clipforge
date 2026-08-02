@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use clipforge_core::ToolKind;
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
@@ -23,6 +24,11 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             project.audio.volume = volume;
             let _ = app_state.player.set_volume(volume as f64 * 100.0);
+            // In-memory only — the slider fires this on every drag step,
+            // so a disk write per event would hammer settings.json; a
+            // later discrete Audio action (mute/track/normalize/merge)
+            // will flush it, matching the crop-drag pattern above.
+            app_state.record_tool_default_in_memory(ToolKind::Audio);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -42,6 +48,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 };
                 project.audio.muted = !project.audio.muted;
                 let muted = project.audio.muted;
+                app_state.record_tool_default(ToolKind::Audio);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 muted
             };
@@ -63,6 +70,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             };
             project.audio.track_index = Some(index.max(0) as usize);
             let _ = app_state.player.set_track(index.max(0) as usize);
+            app_state.record_tool_default(ToolKind::Audio);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -80,6 +88,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 return;
             };
             project.audio.normalize = !project.audio.normalize;
+            app_state.record_tool_default(ToolKind::Audio);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -97,6 +106,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 return;
             };
             project.audio.merge_tracks = !project.audio.merge_tracks;
+            app_state.record_tool_default(ToolKind::Audio);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }

@@ -1,6 +1,7 @@
 mod appearance;
 mod export;
 mod panels;
+mod persistence_settings;
 mod playback;
 mod sync;
 mod timeline;
@@ -22,4 +23,5 @@ pub fn wire_all(app: &App, state: &Rc<RefCell<AppState>>) {
     export::wire(app, state);
     panels::wire(app, state);
     appearance::wire(app, state);
+    persistence_settings::wire(app, state);
 }

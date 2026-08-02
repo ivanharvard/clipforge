@@ -1,3 +1,4 @@
+use clipforge_core::export::HardwareEncoders;
 use clipforge_core::panels::{FrameRateLimit, QualityMode, ResolutionPreset, VideoCodec};
 use clipforge_core::Project;
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
@@ -30,7 +31,7 @@ fn preset_to_index(preset: ResolutionPreset) -> i32 {
 /// Used after loading a clip and after undo/redo, where the underlying
 /// `Project` can change wholesale rather than through a single panel's own
 /// callback.
-pub fn sync_all_panels_from_project(app: &App, project: &Project) {
+pub fn sync_all_panels_from_project(app: &App, project: &Project, hardware: HardwareEncoders) {
     app.set_source_width(project.source_width as i32);
     app.set_source_height(project.source_height as i32);
 
@@ -104,11 +105,16 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
         .set_items(ModelRc::new(VecModel::from(pipeline)));
 
     let compress = app.global::<CompressState>();
-    let target_size = match project.compress.mode {
-        QualityMode::TargetSizeMb(value) => value.round() as i32,
-        _ => 10,
+    let (mode_index, target_size, target_bitrate_kbps, crf_value) = match project.compress.mode {
+        QualityMode::TargetSizeMb(value) => (0, value.round().max(1.0) as i32, 8000, 23),
+        QualityMode::BitrateKbps(kbps) => (1, 10, kbps.max(1) as i32, 23),
+        QualityMode::Crf(crf) => (2, 10, 8000, i32::from(crf)),
     };
-    compress.set_target_size_mb(target_size.max(1));
+    compress.set_mode_index(mode_index);
+    compress.set_advanced_mode(compress.get_advanced_mode() || mode_index != 0);
+    compress.set_target_size_mb(target_size);
+    compress.set_target_bitrate_kbps(target_bitrate_kbps);
+    compress.set_crf_value(crf_value);
     compress.set_frame_rate_index(match project.compress.frame_rate_limit {
         FrameRateLimit::Automatic => 0,
         FrameRateLimit::Fps30 => 1,
@@ -120,15 +126,15 @@ pub fn sync_all_panels_from_project(app: &App, project: &Project) {
     });
     compress.set_extra_quality(project.compress.extra_quality);
     compress.set_tolerance_percent(i32::from(project.compress.tolerance_percent));
-    let target = project.compress.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
-    let minimum = project
-        .compress
-        .minimum_target_size_bytes()
-        .unwrap_or_default() as f64
-        / 1024.0
-        / 1024.0;
-    compress
-        .set_estimated_size_text(format!("Target after trim: {minimum:.1}-{target:.0} MiB").into());
+    compress.set_use_hardware_encoding(project.compress.use_hardware_encoding);
+    let selected_duration_secs = project.clip_bounds.selected_duration().as_secs_f64();
+    compress.set_estimated_size_text(
+        project
+            .compress
+            .estimate_text(selected_duration_secs)
+            .into(),
+    );
+    compress.set_hardware_status_text(project.compress.hardware_status_text(hardware).into());
 
     let playback = app.global::<PlaybackState>();
     let duration = project.clip_bounds.duration();

@@ -54,6 +54,11 @@ pub struct CompressState {
     pub codec: VideoCodec,
     pub extra_quality: bool,
     pub tolerance_percent: u8,
+    /// Prefer the codec's NVENC hardware encoder when the local machine
+    /// has one available (see [`crate::export::HardwareEncoders`]);
+    /// silently falls back to software otherwise.
+    #[serde(default)]
+    pub use_hardware_encoding: bool,
 }
 
 impl Default for CompressState {
@@ -64,6 +69,7 @@ impl Default for CompressState {
             codec: VideoCodec::default(),
             extra_quality: false,
             tolerance_percent: 25,
+            use_hardware_encoding: false,
         }
     }
 }
@@ -105,6 +111,44 @@ impl CompressState {
         let multiplier = u128::from(100 - self.tolerance_percent.min(100) as u16);
         u64::try_from(target * multiplier / 100).ok()
     }
+
+    /// Human-readable predicted-size/status text for the Compress panel,
+    /// tailored to the active quality mode.
+    pub fn estimate_text(&self, selected_duration_secs: f64) -> String {
+        match self.mode {
+            QualityMode::TargetSizeMb(_) => {
+                let target = self.target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+                let minimum =
+                    self.minimum_target_size_bytes().unwrap_or_default() as f64 / 1024.0 / 1024.0;
+                format!("Target after trim: {minimum:.1}-{target:.0} MiB")
+            }
+            QualityMode::BitrateKbps(kbps) => {
+                let estimate = self.estimated_size_mb(selected_duration_secs);
+                format!("~{kbps} kbps \u{2192} approximately {estimate:.1} MiB (estimate, not enforced)")
+            }
+            QualityMode::Crf(crf) => {
+                format!("CRF {crf} \u{2014} output size varies with content; not a fixed target")
+            }
+        }
+    }
+
+    /// Status line for the Compress panel's hardware-encoding toggle:
+    /// whether NVENC is actually in play for the selected codec given
+    /// `hardware`'s probed availability, or why not.
+    pub fn hardware_status_text(&self, hardware: crate::export::HardwareEncoders) -> String {
+        if !self.use_hardware_encoding {
+            return "Hardware encoding off \u{2014} using software".to_string();
+        }
+        let (available, encoder_name, codec_label) = match self.codec {
+            VideoCodec::H264 => (hardware.h264_nvenc, "h264_nvenc", "H.264"),
+            VideoCodec::Av1 => (hardware.av1_nvenc, "av1_nvenc", "AV1"),
+        };
+        if available {
+            format!("NVENC active ({encoder_name})")
+        } else {
+            format!("NVENC unavailable for {codec_label} \u{2014} using software")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -144,6 +188,27 @@ mod tests {
     fn target_size_mode_reports_bytes() {
         let state = CompressState::default();
         assert_eq!(state.target_size_bytes(), Some(10 * 1024 * 1024));
+    }
+
+    #[test]
+    fn estimate_text_varies_by_mode() {
+        let size = CompressState {
+            mode: QualityMode::TargetSizeMb(10.0),
+            ..CompressState::default()
+        };
+        assert!(size.estimate_text(10.0).starts_with("Target after trim"));
+
+        let bitrate = CompressState {
+            mode: QualityMode::BitrateKbps(8000),
+            ..CompressState::default()
+        };
+        assert!(bitrate.estimate_text(10.0).contains("8000 kbps"));
+
+        let crf = CompressState {
+            mode: QualityMode::Crf(23),
+            ..CompressState::default()
+        };
+        assert!(crf.estimate_text(10.0).starts_with("CRF 23"));
     }
 
     #[test]

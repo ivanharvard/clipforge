@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 
 import { formatDuration, parseTimestamp } from "../lib/format";
 import type { EditorSettings } from "../types";
@@ -44,8 +44,12 @@ function TimeField({ label, value, maximum, onCommit }: { label: string; value: 
   );
 }
 
+const HANDLE_HIT_PX = 12;
+
 export function Timeline({ videoRef, durationMs, playheadMs, trim, onTrimChange, disabled = false }: TimelineProps) {
   const [playing, setPlaying] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
   const safeDuration = Math.max(1, durationMs);
   const selectionLeft = (trim.inMs / safeDuration) * 100;
   const selectionWidth = ((trim.outMs - trim.inMs) / safeDuration) * 100;
@@ -74,6 +78,36 @@ export function Timeline({ videoRef, durationMs, playheadMs, trim, onTrimChange,
     if (videoRef.current) videoRef.current.currentTime = milliseconds / 1000;
   };
 
+  const fractionFromEvent = (event: ReactPointerEvent<HTMLDivElement>, rect: DOMRect) =>
+    Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+
+  const isNearHandle = (event: ReactPointerEvent<HTMLDivElement>, rect: DOMRect) => {
+    const x = event.clientX - rect.left;
+    const inX = (trim.inMs / safeDuration) * rect.width;
+    const outX = (trim.outMs / safeDuration) * rect.width;
+    return Math.abs(x - inX) < HANDLE_HIT_PX || Math.abs(x - outX) < HANDLE_HIT_PX;
+  };
+
+  const onTrackPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const track = trackRef.current;
+    if (disabled || !track) return;
+    const rect = track.getBoundingClientRect();
+    if (isNearHandle(event, rect)) return;
+    track.setPointerCapture(event.pointerId);
+    setScrubbing(true);
+    seek(fractionFromEvent(event, rect) * safeDuration);
+  };
+  const onTrackPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const track = trackRef.current;
+    if (!scrubbing || !track) return;
+    seek(fractionFromEvent(event, track.getBoundingClientRect()) * safeDuration);
+  };
+  const onTrackPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!scrubbing) return;
+    setScrubbing(false);
+    trackRef.current?.releasePointerCapture(event.pointerId);
+  };
+
   return (
     <section className="timeline" aria-label="Clip timeline">
       <div className="timeline-transport-row">
@@ -81,7 +115,14 @@ export function Timeline({ videoRef, durationMs, playheadMs, trim, onTrimChange,
           <Icon name={playing ? "pause" : "play"} />
         </button>
         <time>{formatDuration(playheadMs)}</time>
-        <div className="trim-track">
+        <div
+          className="trim-track"
+          ref={trackRef}
+          onPointerDown={onTrackPointerDown}
+          onPointerMove={onTrackPointerMove}
+          onPointerUp={onTrackPointerUp}
+          onPointerCancel={onTrackPointerUp}
+        >
           <div className="selection" style={{ left: `${selectionLeft}%`, width: `${selectionWidth}%` }} />
           <div className="playhead" style={{ left: `${playheadLeft}%` }} />
           <input aria-label="Trim start" type="range" min="0" max={durationMs} step="10" value={trim.inMs} onChange={(event) => {

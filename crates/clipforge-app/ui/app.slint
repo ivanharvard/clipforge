@@ -13,6 +13,8 @@ import {
     ExportDialogState,
     ExportPhase,
     AppearanceState,
+    PersistenceSettingsState,
+    ToolPersistenceRow,
 } from "state.slint";
 import { IconButton } from "components/icon_button.slint";
 import { VideoPreview } from "preview/video_preview.slint";
@@ -20,7 +22,7 @@ import { Sidebar } from "sidebar/sidebar.slint";
 import { IntroSidebar } from "sidebar/intro_sidebar.slint";
 import { ScrubberBar } from "timeline/scrubber_bar.slint";
 import { ExportDialog } from "export/export_dialog.slint";
-import { AppearanceDialog } from "settings/appearance_dialog.slint";
+import { SettingsDialog } from "settings/appearance_dialog.slint";
 import { QueueCarousel } from "queue/queue_carousel.slint";
 
 // Re-exported so Rust can reach these globals via `app.global::<T>()` —
@@ -41,6 +43,8 @@ export {
     ExportDialogState,
     ExportPhase,
     AppearanceState,
+    PersistenceSettingsState,
+    ToolPersistenceRow,
 }
 
 // Root window: branded command bar, queue, and a unified editor shell.
@@ -65,6 +69,7 @@ export component App inherits Window {
 
     callback open-clip-clicked;
     callback export-clicked;
+    callback export-current-clicked;
     callback undo-requested;
     callback redo-requested;
 
@@ -100,6 +105,7 @@ export component App inherits Window {
                     can-next: QueueState.can-next;
                     add-clicked => { root.open-clip-clicked(); }
                     export-clicked => { root.export-clicked(); }
+                    export-current-clicked => { root.export-current-clicked(); }
                     remove-clicked => { QueueState.remove-clicked(); }
                     select-clicked(index) => { QueueState.select-clicked(index); }
                     previous-clicked => { QueueState.previous-clicked(); }
@@ -180,7 +186,7 @@ export component App inherits Window {
 
             IconButton {
                 icon: @image-url("../icons/ui/settings.svg");
-                accessible-label: "Appearance settings";
+                accessible-label: "Settings";
                 clicked => { AppearanceState.open-requested(); }
             }
         }
@@ -188,6 +194,10 @@ export component App inherits Window {
 
     if ExportDialogState.visible: Rectangle {
         background: #000000.with-alpha(0.4);
+
+        // Consumes clicks so the dimmed backdrop blocks interaction with
+        // everything behind the dialog instead of letting them pass through.
+        TouchArea {}
 
         ExportDialog {
             width: 400px;
@@ -198,9 +208,12 @@ export component App inherits Window {
     if AppearanceState.visible: Rectangle {
         background: #000000.with-alpha(0.4);
 
-        AppearanceDialog {
-            width: 340px;
-            height: 320px;
+        // Same click-blocking backdrop as the export dialog above.
+        TouchArea {}
+
+        SettingsDialog {
+            width: 420px;
+            height: 520px;
         }
     }
 }

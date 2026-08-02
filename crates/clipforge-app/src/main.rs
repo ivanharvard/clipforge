@@ -6,6 +6,7 @@ mod platform;
 mod recovery;
 mod settings;
 mod theme;
+mod tool_defaults;
 mod video_surface;
 
 use std::cell::RefCell;
@@ -73,7 +74,7 @@ fn activate_and_apply_clip(app: &App, state: &Rc<RefCell<AppState>>, index: usiz
     if has_clip {
         bindings::sync_playback_state(app, state);
         if let Some(project) = &state.borrow().project {
-            bindings::sync_all_panels_from_project(app, project);
+            bindings::sync_all_panels_from_project(app, project, state.borrow().hardware_encoders);
         }
         bindings::update_undo_redo_buttons(app, &state.borrow());
     }
@@ -255,7 +256,7 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    bindings::sync_all_panels_from_project(&app, project);
+                    bindings::sync_all_panels_from_project(&app, project, app_state.hardware_encoders);
                 }
                 let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);
@@ -276,13 +277,23 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    bindings::sync_all_panels_from_project(&app, project);
+                    bindings::sync_all_panels_from_project(&app, project, app_state.hardware_encoders);
                 }
                 let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);
             }
             bindings::sync_playback_state(&app, &state);
         });
+    }
+    fn open_export_dialog(app: &App, state: &Rc<RefCell<AppState>>, current_only: bool) {
+        let export = app.global::<ExportDialogState>();
+        if export.get_destination_path().is_empty() {
+            if let Some(directory) = state.borrow().default_export_directory() {
+                export.set_destination_path(directory.display().to_string().into());
+            }
+        }
+        export.set_export_current_only(current_only);
+        export.set_visible(true);
     }
     app.on_export_clicked({
         let app_weak = app.as_weak();
@@ -291,13 +302,17 @@ fn main() -> anyhow::Result<()> {
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
-            let export = app.global::<ExportDialogState>();
-            if export.get_destination_path().is_empty() {
-                if let Some(directory) = state.borrow().default_export_directory() {
-                    export.set_destination_path(directory.display().to_string().into());
-                }
-            }
-            export.set_visible(true);
+            open_export_dialog(&app, &state, false);
+        }
+    });
+    app.on_export_current_clicked({
+        let app_weak = app.as_weak();
+        let state = state.clone();
+        move || {
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            open_export_dialog(&app, &state, true);
         }
     });
 

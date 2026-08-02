@@ -33,6 +33,17 @@ impl PlayerContext {
             .map_err(PlayerError::Mpv)
     }
 
+    /// Seeks to the nearest keyframe at or before `position_secs` — much
+    /// cheaper than [`seek_to`](Self::seek_to) since it avoids decoding
+    /// from a keyframe to the exact target frame. Intended for continuous
+    /// scrub-drag feedback; pair with a final `seek_to` call once the drag
+    /// settles for frame-accurate positioning.
+    pub fn seek_to_fast(&self, position_secs: f64) -> PlayerResult<()> {
+        self.mpv()
+            .command("seek", &[&position_secs.to_string(), "absolute+keyframes"])
+            .map_err(PlayerError::Mpv)
+    }
+
     /// Steps a single frame forward or backward.
     pub fn step_frame(&self, forward: bool) -> PlayerResult<()> {
         let cmd = if forward {
@@ -119,6 +130,15 @@ impl PlayerContext {
         self.mpv()
             .get_property("time-pos")
             .map_err(PlayerError::Mpv)
+    }
+
+    /// Whether mpv is currently paused. mpv autoplays as soon as a file is
+    /// loaded (nothing in this codebase sets `pause` at load time), so this
+    /// can flip to `false` without any explicit `play()` call — callers
+    /// that drive a play/pause button's icon should poll this rather than
+    /// assume it only changes in response to `play()`/`pause()`.
+    pub fn is_paused(&self) -> PlayerResult<bool> {
+        self.mpv().get_property("pause").map_err(PlayerError::Mpv)
     }
 
     pub fn duration_secs(&self) -> PlayerResult<f64> {

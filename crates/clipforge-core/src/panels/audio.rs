@@ -40,6 +40,17 @@ impl AudioState {
             self.volume.clamp(0.0, 2.0)
         }
     }
+
+    /// Carries this state over as the default for a newly-added video,
+    /// dropping `track_index` — a source file's audio-stream layout is
+    /// specific to it, so a previous video's selected track index has no
+    /// meaningful counterpart in a different source.
+    pub fn as_default_for_new_source(&self) -> AudioState {
+        AudioState {
+            track_index: None,
+            ..self.clone()
+        }
+    }
 }
 
 #[cfg(test)]

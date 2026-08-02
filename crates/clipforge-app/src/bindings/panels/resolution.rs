@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use clipforge_core::panels::ResolutionPreset;
+use clipforge_core::ToolKind;
 use slint::ComponentHandle;
 
 use crate::app_state::AppState;
@@ -37,6 +38,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             app.global::<ResolutionState>()
                 .set_custom_fields_enabled(is_custom);
             let _ = app_state.apply_project_preview();
+            app_state.record_tool_default(ToolKind::Resolution);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -57,6 +59,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
             project.resolution.custom_width = resolution_global.get_custom_width().max(0) as u32;
             project.resolution.custom_height = resolution_global.get_custom_height().max(0) as u32;
             let _ = app_state.apply_project_preview();
+            app_state.record_tool_default(ToolKind::Resolution);
             crate::bindings::update_undo_redo_buttons(&app, &app_state);
         });
     }
@@ -76,6 +79,7 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 };
                 project.resolution.aspect_locked = !project.resolution.aspect_locked;
                 let locked = project.resolution.aspect_locked;
+                app_state.record_tool_default(ToolKind::Resolution);
                 crate::bindings::update_undo_redo_buttons(&app, &app_state);
                 locked
             };

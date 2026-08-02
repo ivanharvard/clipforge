@@ -1,6 +1,11 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
-use clipforge_core::panels::{CompressState, FrameRateLimit, QualityMode, VideoCodec};
+use clipforge_core::panels::{
+    AudioState, CompressState, CropDefault, FrameRateLimit, QualityMode, ResolutionState,
+    TransformState, VideoCodec,
+};
+use clipforge_core::ToolKind;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -9,6 +14,36 @@ pub enum ThemeMode {
     Dark,
     Light,
     System,
+}
+
+/// Controls when a tool's edited value carries over to future use, per the
+/// Settings dialog's Persistence tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PersistenceMode {
+    /// Survives an app restart (saved to `settings.json`).
+    OnAppReset,
+    /// Carries over to new videos added this session, but resets to the
+    /// tool's hardcoded default the next time the app starts.
+    OnQueueAdd,
+    /// Never carries over — every new video/reset always uses the tool's
+    /// hardcoded built-in default.
+    Never,
+}
+
+fn default_persistence_modes() -> HashMap<ToolKind, PersistenceMode> {
+    ToolKind::ALL
+        .into_iter()
+        .map(|kind| (kind, default_persistence_mode_for(kind)))
+        .collect()
+}
+
+fn default_persistence_mode_for(kind: ToolKind) -> PersistenceMode {
+    match kind {
+        // Matches Compress's existing always-persisted behavior.
+        ToolKind::Compress => PersistenceMode::OnAppReset,
+        _ => PersistenceMode::Never,
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -46,8 +81,20 @@ pub struct AppSettings {
     compression_codec: VideoCodec,
     compression_extra_quality: bool,
     compression_tolerance_percent: u8,
+    #[serde(default)]
+    compression_use_hardware_encoding: bool,
     pub compression_apply_all: bool,
     theme_mode: ThemeMode,
+    #[serde(default = "default_persistence_modes")]
+    persistence_modes: HashMap<ToolKind, PersistenceMode>,
+    #[serde(default)]
+    transform_default: TransformState,
+    #[serde(default)]
+    crop_default: Option<CropDefault>,
+    #[serde(default)]
+    resolution_default: Option<ResolutionState>,
+    #[serde(default)]
+    audio_default: AudioState,
 }
 
 impl Default for AppSettings {
@@ -58,8 +105,14 @@ impl Default for AppSettings {
             compression_codec: VideoCodec::H264,
             compression_extra_quality: false,
             compression_tolerance_percent: 25,
+            compression_use_hardware_encoding: false,
             compression_apply_all: true,
             theme_mode: ThemeMode::Dark,
+            persistence_modes: default_persistence_modes(),
+            transform_default: TransformState::default(),
+            crop_default: None,
+            resolution_default: None,
+            audio_default: AudioState::default(),
         }
     }
 }
@@ -75,8 +128,8 @@ impl AppSettings {
         let Ok(mut settings) = serde_json::from_str::<Self>(&contents) else {
             return Self::default();
         };
-        if !matches!(settings.compression, SavedCompression::TargetSizeMb(_)) {
-            settings.compression = SavedCompression::TargetSizeMb(10.0);
+        if let SavedCompression::Crf(crf) = &mut settings.compression {
+            *crf = (*crf).min(51);
         }
         settings.compression_tolerance_percent = settings.compression_tolerance_percent.min(100);
         settings
@@ -89,6 +142,7 @@ impl AppSettings {
             codec: self.compression_codec,
             extra_quality: self.compression_extra_quality,
             tolerance_percent: self.compression_tolerance_percent,
+            use_hardware_encoding: self.compression_use_hardware_encoding,
         }
     }
 
@@ -98,6 +152,7 @@ impl AppSettings {
         self.compression_codec = compression.codec;
         self.compression_extra_quality = compression.extra_quality;
         self.compression_tolerance_percent = compression.tolerance_percent;
+        self.compression_use_hardware_encoding = compression.use_hardware_encoding;
     }
 
     pub fn theme_mode(&self) -> ThemeMode {
@@ -106,6 +161,49 @@ impl AppSettings {
 
     pub fn set_theme_mode(&mut self, theme_mode: ThemeMode) {
         self.theme_mode = theme_mode;
+    }
+
+    pub fn persistence_mode(&self, kind: ToolKind) -> PersistenceMode {
+        self.persistence_modes
+            .get(&kind)
+            .copied()
+            .unwrap_or_else(|| default_persistence_mode_for(kind))
+    }
+
+    pub fn set_persistence_mode(&mut self, kind: ToolKind, mode: PersistenceMode) {
+        self.persistence_modes.insert(kind, mode);
+    }
+
+    pub fn transform_default(&self) -> TransformState {
+        self.transform_default
+    }
+
+    pub fn set_transform_default(&mut self, value: TransformState) {
+        self.transform_default = value;
+    }
+
+    pub fn crop_default(&self) -> Option<CropDefault> {
+        self.crop_default
+    }
+
+    pub fn set_crop_default(&mut self, value: CropDefault) {
+        self.crop_default = Some(value);
+    }
+
+    pub fn resolution_default(&self) -> Option<ResolutionState> {
+        self.resolution_default
+    }
+
+    pub fn set_resolution_default(&mut self, value: ResolutionState) {
+        self.resolution_default = Some(value);
+    }
+
+    pub fn audio_default(&self) -> AudioState {
+        self.audio_default.clone()
+    }
+
+    pub fn set_audio_default(&mut self, value: AudioState) {
+        self.audio_default = value;
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -163,5 +261,64 @@ mod tests {
         let restored: AppSettings =
             serde_json::from_str(&serialized).expect("deserialize settings");
         assert_eq!(restored.theme_mode(), ThemeMode::System);
+    }
+
+    #[test]
+    fn persistence_mode_defaults_match_pre_existing_behavior() {
+        let settings = AppSettings::default();
+        assert_eq!(
+            settings.persistence_mode(ToolKind::Compress),
+            PersistenceMode::OnAppReset
+        );
+        for kind in [
+            ToolKind::Transform,
+            ToolKind::Crop,
+            ToolKind::Resolution,
+            ToolKind::Audio,
+        ] {
+            assert_eq!(settings.persistence_mode(kind), PersistenceMode::Never);
+        }
+    }
+
+    #[test]
+    fn persistence_modes_and_tool_defaults_round_trip_through_json() {
+        let mut settings = AppSettings::default();
+        settings.set_persistence_mode(ToolKind::Transform, PersistenceMode::OnAppReset);
+        settings.set_transform_default(TransformState::default());
+        settings.set_persistence_mode(ToolKind::Audio, PersistenceMode::OnQueueAdd);
+
+        let serialized = serde_json::to_string(&settings).expect("serialize settings");
+        let restored: AppSettings =
+            serde_json::from_str(&serialized).expect("deserialize settings");
+        assert_eq!(
+            restored.persistence_mode(ToolKind::Transform),
+            PersistenceMode::OnAppReset
+        );
+        assert_eq!(
+            restored.persistence_mode(ToolKind::Audio),
+            PersistenceMode::OnQueueAdd
+        );
+        // Untouched tools keep the same defaults as a freshly-created settings file.
+        assert_eq!(
+            restored.persistence_mode(ToolKind::Crop),
+            PersistenceMode::Never
+        );
+    }
+
+    #[test]
+    fn settings_without_persistence_data_fall_back_to_defaults() {
+        // Simulates loading a settings.json written before this feature
+        // existed — the new fields must not be required.
+        let legacy_json = serde_json::to_string(&serde_json::json!({
+            "compression_apply_all": true,
+        }))
+        .expect("build legacy json");
+        let restored: AppSettings =
+            serde_json::from_str(&legacy_json).expect("deserialize legacy settings");
+        assert_eq!(
+            restored.persistence_mode(ToolKind::Compress),
+            PersistenceMode::OnAppReset
+        );
+        assert!(restored.crop_default().is_none());
     }
 }

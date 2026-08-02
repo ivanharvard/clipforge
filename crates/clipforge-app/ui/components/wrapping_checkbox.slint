@@ -1,0 +1,52 @@
+import { Theme } from "../theme.slint";
+
+// A checkbox with a label that word-wraps instead of running past the
+// panel edge — std-widgets CheckBox has no wrap support, which is fine for
+// short labels but clips longer ones (e.g. "Use hardware encoding (NVENC)
+// when available").
+export component WrappingCheckBox inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    callback toggled;
+
+    height: content.preferred-height;
+
+    content := HorizontalLayout {
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: start;
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                border-width: 1px;
+                border-color: root.checked ? Theme.accent : Theme.text-secondary;
+                background: root.checked ? Theme.accent : transparent;
+
+                Image {
+                    visible: root.checked;
+                    source: @image-url("../../icons/ui/check.svg");
+                    width: 10px;
+                    height: 10px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    colorize: Theme.bg;
+                }
+            }
+        }
+
+        Text {
+            text: root.text;
+            color: Theme.text-primary;
+            font-size: Theme.text-sm;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.toggled(); }
+    }
+}

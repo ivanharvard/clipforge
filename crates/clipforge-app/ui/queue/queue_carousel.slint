@@ -41,6 +41,28 @@ component TextButton inherits Rectangle {
     }
 }
 
+component ExportMenuRow inherits Rectangle {
+    in property <string> label: "";
+    callback clicked;
+
+    height: 32px;
+    background: touch.has-hover ? Theme.surface-alt : transparent;
+
+    Text {
+        x: Theme.space-3;
+        text: root.label;
+        color: Theme.text-primary;
+        font-size: Theme.text-sm;
+        vertical-alignment: center;
+        height: 100%;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
 component QueueCard inherits Rectangle {
     in property <string> label: "";
     in property <string> position: "";
@@ -103,6 +125,7 @@ export component QueueCarousel inherits Rectangle {
     in property <bool> can-next: false;
     callback add-clicked;
     callback export-clicked;
+    callback export-current-clicked;
     callback remove-clicked;
     callback select-clicked(int);
     callback previous-clicked;
@@ -155,11 +178,46 @@ export component QueueCarousel inherits Rectangle {
                 is-enabled: root.count > 0;
                 clicked => { root.remove-clicked(); }
             }
-            TextButton {
-                label: root.count > 1 ? "Export queue" : "Export video";
+            export-button := TextButton {
+                label: root.count > 1 ? "Export ▾" : "Export video";
                 primary: true;
                 is-enabled: root.count > 0;
-                clicked => { root.export-clicked(); }
+                clicked => {
+                    if (root.count > 1) {
+                        export-popup.show();
+                    } else {
+                        root.export-clicked();
+                    }
+                }
+            }
+        }
+
+        export-popup := PopupWindow {
+            // Right-align with the button (rather than left-align) since
+            // the button sits at the far right edge of the carousel bar —
+            // a wider popup left-aligned there would run off the window.
+            x: export-button.x + export-button.width - self.width;
+            y: export-button.y + export-button.height + Theme.space-1;
+            width: 190px;
+            height: 64px;
+
+            Rectangle {
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border-color;
+                border-radius: Theme.radius-control;
+                clip: true;
+
+                VerticalLayout {
+                    ExportMenuRow {
+                        label: "Export This Video";
+                        clicked => { root.export-current-clicked(); }
+                    }
+                    ExportMenuRow {
+                        label: "Export All";
+                        clicked => { root.export-clicked(); }
+                    }
+                }
             }
         }
     }

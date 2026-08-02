@@ -64,6 +64,12 @@ pub fn sync_playback_state(app: &App, state: &Rc<RefCell<AppState>>) {
             .into(),
     );
     playback.set_duration_text(duration.to_string().into());
+    // mpv autoplays on load and keeps playing through a seek unless it was
+    // already paused, so the play/pause icon needs to track mpv's actual
+    // state rather than only the state our own play/pause handler set.
+    if let Ok(paused) = state.player.is_paused() {
+        playback.set_playing(!paused);
+    }
 
     if duration.as_ms() > 0 {
         playback.set_playhead_position((position_ms as f64 / duration.as_ms() as f64) as f32);

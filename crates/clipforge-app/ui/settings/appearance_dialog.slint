@@ -1,56 +1,24 @@
 import { Theme } from "../theme.slint";
-import { AppearanceState } from "../state.slint";
-import { Button } from "std-widgets.slint";
+import { AppearanceState, PersistenceSettingsState } from "../state.slint";
+import { RadioOption } from "../components/radio_option.slint";
+import { Button, ScrollView } from "std-widgets.slint";
 
-// Custom-drawn radio-style option row, not std-widgets RadioButton: Slint
-// 1.17's "qt" style implements RadioButton as a hand-drawn component with
-// hardcoded light-theme colors rather than a real native QStyle-painted
-// item (unlike Button/CheckBox/ComboBox/Slider/SpinBox/LineEdit, which all
-// use genuine Native* items and correctly follow the live palette) — so it
-// never contrasts correctly against a dark dialog, and its RadioGroup's
-// internal exclusive-selection bookkeeping fights an externally-driven
-// `checked` binding badly enough to desync the selection. This sidesteps
-// both problems: plain Theme-token colors and fully external state.
-component ThemeOption inherits Rectangle {
+component TabButton inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
     callback clicked;
 
-    height: 32px;
+    height: 30px;
     border-radius: Theme.radius-control;
-    background: touch.has-hover ? Theme.surface-alt : transparent;
+    background: root.selected ? Theme.accent.with-alpha(0.16) : (touch.has-hover ? Theme.surface-alt : transparent);
 
-    HorizontalLayout {
-        padding-left: Theme.space-2;
-        padding-right: Theme.space-2;
-        spacing: Theme.space-2;
-        cross-axis-alignment: center;
-
-        Rectangle {
-            width: 16px;
-            height: 16px;
-            border-radius: 8px;
-            border-width: 1px;
-            border-color: root.selected ? Theme.accent : Theme.text-secondary;
-
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: Theme.accent;
-                opacity: root.selected ? 1.0 : 0.0;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                animate opacity { duration: 100ms; easing: ease-out; }
-            }
-        }
-
-        Text {
-            text: root.label;
-            color: Theme.text-primary;
-            font-size: Theme.text-sm;
-            vertical-alignment: center;
-        }
+    Text {
+        text: root.label;
+        color: root.selected ? Theme.accent : Theme.text-secondary;
+        font-size: Theme.text-sm;
+        font-weight: root.selected ? 600 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
     }
 
     touch := TouchArea {
@@ -58,63 +26,162 @@ component ThemeOption inherits Rectangle {
     }
 }
 
-// Appearance settings: theme palette (Dark / Light / Match System), plus
-// read-only status about KDE native styling (see AppearanceState — that
-// part is informational, not a toggle, since Slint's "qt" style is baked
-// in at compile time and can't be switched at runtime).
-export component AppearanceDialog inherits Rectangle {
+// Persistence row for one tool: a label plus a 3-way choice of when its
+// edits carry over (app restart / new videos this session / never).
+component PersistenceRow inherits VerticalLayout {
+    in property <string> kind;
+    in property <string> label;
+    in property <int> mode-index;
+
+    spacing: Theme.space-1;
+
+    Text {
+        text: root.label;
+        color: Theme.text-primary;
+        font-size: Theme.text-sm;
+        font-weight: 600;
+    }
+
+    RadioOption {
+        label: "Persist across app restart";
+        selected: root.mode-index == 0;
+        clicked => { PersistenceSettingsState.mode-selected(root.kind, 0); }
+    }
+    RadioOption {
+        label: "Persist to new videos this session only";
+        selected: root.mode-index == 1;
+        clicked => { PersistenceSettingsState.mode-selected(root.kind, 1); }
+    }
+    RadioOption {
+        label: "Never persist (always default)";
+        selected: root.mode-index == 2;
+        clicked => { PersistenceSettingsState.mode-selected(root.kind, 2); }
+    }
+}
+
+// Settings dialog: Appearance (theme palette, KDE native-style status) and
+// Defaults (per-tool persistence mode) tabs.
+export component SettingsDialog inherits Rectangle {
     background: Theme.surface;
     border-radius: Theme.radius-panel;
     border-width: 1px;
     border-color: Theme.border-color;
+    clip: true;
 
     VerticalLayout {
         padding: Theme.space-6;
         spacing: Theme.space-4;
 
         Text {
-            text: "Appearance";
+            text: "Settings";
             font-size: Theme.text-lg;
             font-weight: 600;
             color: Theme.text-primary;
         }
 
-        VerticalLayout {
-            spacing: Theme.space-1;
+        HorizontalLayout {
+            spacing: Theme.space-2;
 
-            ThemeOption {
-                label: "Dark";
-                selected: AppearanceState.theme-mode-index == 0;
-                clicked => { AppearanceState.theme-mode-selected(0); }
+            TabButton {
+                label: "Appearance";
+                selected: AppearanceState.active-tab == 0;
+                clicked => { AppearanceState.active-tab = 0; scroll.viewport-y = 0px; }
             }
-
-            ThemeOption {
-                label: "Light";
-                selected: AppearanceState.theme-mode-index == 1;
-                clicked => { AppearanceState.theme-mode-selected(1); }
+            TabButton {
+                label: "Defaults";
+                selected: AppearanceState.active-tab == 1;
+                clicked => { AppearanceState.active-tab = 1; scroll.viewport-y = 0px; }
             }
+            Rectangle {}
+        }
 
-            ThemeOption {
-                label: "Match system";
-                selected: AppearanceState.theme-mode-index == 2;
-                clicked => { AppearanceState.theme-mode-selected(2); }
+        // Scrollable so a growing tab body (e.g. five tools' worth of
+        // persistence rows) never pushes the Close button below the
+        // dialog's visible bounds — only this region scrolls. Both tabs
+        // share one Flickable/viewport, so its scroll offset is reset
+        // above on every tab switch — otherwise the new tab would open
+        // wherever the previous tab happened to be scrolled to.
+        scroll := ScrollView {
+            vertical-stretch: 1;
+            // Slint doesn't reliably auto-derive a ScrollView's scrollable
+            // range from a Layout child nested this deeply (conditional
+            // VerticalLayouts inside a VerticalLayout inside the
+            // ScrollView) — it under-reports the content height, so the
+            // scrollbar bottoms out before the last row is fully visible.
+            // Binding viewport-height explicitly to the content's own
+            // preferred-height (the same fix sidebar.slint already uses
+            // for the tool panel list) makes the real range available.
+            viewport-height: content.preferred-height;
+
+            content := VerticalLayout {
+                width: 100%;
+                spacing: Theme.space-4;
+
+                if AppearanceState.active-tab == 0: VerticalLayout {
+                    spacing: Theme.space-4;
+
+                    VerticalLayout {
+                        spacing: Theme.space-1;
+
+                        RadioOption {
+                            label: "Dark";
+                            selected: AppearanceState.theme-mode-index == 0;
+                            clicked => { AppearanceState.theme-mode-selected(0); }
+                        }
+
+                        RadioOption {
+                            label: "Light";
+                            selected: AppearanceState.theme-mode-index == 1;
+                            clicked => { AppearanceState.theme-mode-selected(1); }
+                        }
+
+                        RadioOption {
+                            label: "Match system";
+                            selected: AppearanceState.theme-mode-index == 2;
+                            clicked => { AppearanceState.theme-mode-selected(2); }
+                        }
+                    }
+
+                    // Manually broken at ~fit-width instead of `wrap:
+                    // word-wrap`: Slint's Text keeps its unwrapped
+                    // single-line preferred-height even when wrap is on
+                    // (only min-width shrinks), which under-reports the
+                    // height this ScrollView sums up for its scroll range.
+                    // Explicit line breaks don't have that problem — only
+                    // wrap-induced ones are excluded from preferred-height.
+                    if AppearanceState.native-style-available: Text {
+                        text: "Using native KDE Application Style for controls\n(configured in KDE System Settings).";
+                        color: Theme.text-secondary;
+                        font-size: Theme.text-xs;
+                    }
+
+                    if AppearanceState.kde-detected: Text {
+                        text: "For native KDE-styled controls, install the\nclipforge-kde package.";
+                        color: Theme.text-secondary;
+                        font-size: Theme.text-xs;
+                    }
+                }
+
+                if AppearanceState.active-tab == 1: VerticalLayout {
+                    spacing: Theme.space-4;
+
+                    Text {
+                        text: "Controls whether a tool's edits carry over to\nthe next video you add, or across an app\nrestart.";
+                        color: Theme.text-secondary;
+                        font-size: Theme.text-xs;
+                    }
+
+                    for row in PersistenceSettingsState.rows: PersistenceRow {
+                        kind: row.kind;
+                        label: row.label;
+                        mode-index: row.mode-index;
+                    }
+                }
             }
         }
 
-        if AppearanceState.native-style-available: Text {
-            text: "Using native KDE Application Style for controls (configured in KDE System Settings).";
-            color: Theme.text-secondary;
-            font-size: Theme.text-xs;
-            wrap: word-wrap;
-        }
-
-        if AppearanceState.kde-detected: Text {
-            text: "For native KDE-styled controls, install the clipforge-kde package.";
-            color: Theme.text-secondary;
-            font-size: Theme.text-xs;
-            wrap: word-wrap;
-        }
-
+        // Its own fixed footer item, outside the scroll area, so it's
+        // always visible regardless of how tall the tab content grows.
         HorizontalLayout {
             alignment: end;
 

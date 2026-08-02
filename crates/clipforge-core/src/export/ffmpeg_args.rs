@@ -1,12 +1,17 @@
 use std::path::Path;
 
+use crate::export::HardwareEncoders;
 use crate::panels::{AudioState, QualityMode, VideoCodec};
 use crate::pipeline::evaluate_pipeline;
 use crate::project::Project;
 
 /// Builds the `ffmpeg` argument list for exporting `project` to `output`.
 /// Pure function: no process spawning, so it's fully unit-testable.
-pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
+/// `hardware` reports which NVENC encoders are actually available on this
+/// machine (see [`HardwareEncoders::probe`]) — used to decide whether the
+/// project's `use_hardware_encoding` preference can actually be honored;
+/// pass [`HardwareEncoders::default()`] to always encode in software.
+pub fn build_export_args(project: &Project, output: &Path, hardware: HardwareEncoders) -> Vec<String> {
     let mut args = vec![
         "-hide_banner".to_string(),
         "-nostats".to_string(),
@@ -105,46 +110,24 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
         ]);
     }
 
-    args.push("-c:v".to_string());
     let codec = if plan.compression_enabled {
         project.compress.codec
     } else {
         VideoCodec::H264
     };
+    let extra_quality = plan.compression_enabled && project.compress.extra_quality;
+    let use_nvenc = plan.compression_enabled && project.compress.use_hardware_encoding;
     match codec {
+        VideoCodec::H264 if use_nvenc && hardware.h264_nvenc => {
+            push_h264_nvenc_args(&mut args, extra_quality)
+        }
         VideoCodec::H264 => {
-            args.push("libx264".to_string());
-            args.extend([
-                "-preset".to_string(),
-                if plan.compression_enabled && project.compress.extra_quality {
-                    "slow".to_string()
-                } else {
-                    "veryfast".to_string()
-                },
-                "-profile:v".to_string(),
-                if plan.compression_enabled && project.compress.extra_quality {
-                    "high".to_string()
-                } else {
-                    "main".to_string()
-                },
-            ]);
-            if !plan.compression_enabled {
-                args.extend(["-crf".to_string(), "18".to_string()]);
-            }
+            push_h264_software_args(&mut args, extra_quality, plan.compression_enabled)
         }
-        VideoCodec::Av1 => {
-            args.push("libaom-av1".to_string());
-            args.extend([
-                "-cpu-used".to_string(),
-                if project.compress.extra_quality {
-                    "4".to_string()
-                } else {
-                    "8".to_string()
-                },
-                "-row-mt".to_string(),
-                "1".to_string(),
-            ]);
+        VideoCodec::Av1 if use_nvenc && hardware.av1_nvenc => {
+            push_av1_nvenc_args(&mut args, extra_quality)
         }
+        VideoCodec::Av1 => push_av1_software_args(&mut args, extra_quality),
     }
     args.push("-pix_fmt".to_string());
     args.push("yuv420p".to_string());
@@ -175,6 +158,84 @@ pub fn build_export_args(project: &Project, output: &Path) -> Vec<String> {
     args
 }
 
+fn push_h264_software_args(args: &mut Vec<String>, extra_quality: bool, compression_enabled: bool) {
+    args.push("-c:v".to_string());
+    args.push("libx264".to_string());
+    args.extend([
+        "-preset".to_string(),
+        if extra_quality {
+            "slow".to_string()
+        } else {
+            "veryfast".to_string()
+        },
+        "-profile:v".to_string(),
+        if extra_quality {
+            "high".to_string()
+        } else {
+            "main".to_string()
+        },
+    ]);
+    if !compression_enabled {
+        args.extend(["-crf".to_string(), "18".to_string()]);
+    }
+}
+
+fn push_av1_software_args(args: &mut Vec<String>, extra_quality: bool) {
+    args.push("-c:v".to_string());
+    args.push("libaom-av1".to_string());
+    args.extend([
+        "-cpu-used".to_string(),
+        if extra_quality {
+            "4".to_string()
+        } else {
+            "8".to_string()
+        },
+        "-row-mt".to_string(),
+        "1".to_string(),
+    ]);
+}
+
+/// NVENC's closest counterparts to the software presets above. Quality/
+/// bitrate control itself is unaffected by the encoder backend — the
+/// shared `-b:v` value computed earlier in [`build_export_args`] applies
+/// equally here, since NVENC honors it under its default VBR rate control,
+/// the same way libx264 does.
+fn push_h264_nvenc_args(args: &mut Vec<String>, extra_quality: bool) {
+    args.push("-c:v".to_string());
+    args.push("h264_nvenc".to_string());
+    args.extend([
+        "-preset".to_string(),
+        if extra_quality {
+            "p6".to_string()
+        } else {
+            "p4".to_string()
+        },
+        "-profile:v".to_string(),
+        if extra_quality {
+            "high".to_string()
+        } else {
+            "main".to_string()
+        },
+    ]);
+}
+
+/// AV1 NVENC requires an RTX 40-series+ GPU; [`HardwareEncoders::probe`]
+/// already reports it unavailable on anything else (ffmpeg's `-encoders`
+/// listing only shows what the build+driver actually support), so no
+/// separate generation check is needed here.
+fn push_av1_nvenc_args(args: &mut Vec<String>, extra_quality: bool) {
+    args.push("-c:v".to_string());
+    args.push("av1_nvenc".to_string());
+    args.extend([
+        "-preset".to_string(),
+        if extra_quality {
+            "p6".to_string()
+        } else {
+            "p4".to_string()
+        },
+    ]);
+}
+
 fn quality_bitrate_kbps(width: u32, height: u32, crf: u8) -> u32 {
     let baseline_kbps = width.max(2) as f64 * height.max(2) as f64 * 30.0 * 0.07 / 1000.0;
     let quality_factor = 2.0_f64.powf((23.0 - f64::from(crf.clamp(0, 51))) / 6.0);
@@ -202,7 +263,7 @@ mod tests {
     #[test]
     fn includes_input_and_output_paths() {
         let project = sample_project();
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.contains(&"/tmp/input.mp4".to_string()));
         assert_eq!(args.last(), Some(&"/tmp/output.mp4".to_string()));
     }
@@ -210,7 +271,7 @@ mod tests {
     #[test]
     fn omits_video_filter_when_no_transform_applied() {
         let project = sample_project();
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(!args.contains(&"-vf".to_string()));
     }
 
@@ -223,7 +284,7 @@ mod tests {
             custom_height: 0,
             aspect_locked: true,
         };
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         let vf_index = args.iter().position(|a| a == "-vf").expect("has -vf");
         assert!(args[vf_index + 1].starts_with("scale=1280:720"));
     }
@@ -233,7 +294,7 @@ mod tests {
         let mut project = sample_project();
         project.clip_bounds.set_in_point(Timestamp::from_ms(2_000));
         project.clip_bounds.set_out_point(Timestamp::from_ms(7_000));
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         let seek_index = args.iter().position(|argument| argument == "-ss").unwrap();
         let input_index = args.iter().position(|argument| argument == "-i").unwrap();
         assert!(seek_index < input_index);
@@ -245,7 +306,7 @@ mod tests {
         let mut project = sample_project();
         project.source_frame_rate = 60.0;
         project.compress.frame_rate_limit = crate::panels::FrameRateLimit::Fps30;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.windows(2).any(|pair| pair == ["-vf", "fps=30"]));
     }
 
@@ -254,7 +315,7 @@ mod tests {
         let mut project = sample_project();
         project.compress.codec = VideoCodec::Av1;
         project.compress.extra_quality = true;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.windows(2).any(|pair| pair == ["-c:v", "libaom-av1"]));
         assert!(args.windows(2).any(|pair| pair == ["-cpu-used", "4"]));
     }
@@ -263,17 +324,68 @@ mod tests {
     fn quality_mode_sets_libx264_bitrate_control() {
         let mut project = sample_project();
         project.compress.mode = QualityMode::Crf(23);
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.contains(&"-b:v".to_string()));
         assert!(args.windows(2).any(|pair| pair == ["-c:v", "libx264"]));
         assert!(!args.contains(&"-crf".to_string()));
     }
 
     #[test]
+    fn uses_h264_nvenc_when_requested_and_available() {
+        let mut project = sample_project();
+        project.compress.use_hardware_encoding = true;
+        let hardware = HardwareEncoders {
+            h264_nvenc: true,
+            av1_nvenc: false,
+        };
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), hardware);
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "h264_nvenc"]));
+        assert!(!args.contains(&"libx264".to_string()));
+    }
+
+    #[test]
+    fn falls_back_to_software_when_hardware_encoding_unavailable() {
+        let mut project = sample_project();
+        project.compress.use_hardware_encoding = true;
+        let args = build_export_args(
+            &project,
+            Path::new("/tmp/output.mp4"),
+            HardwareEncoders::default(),
+        );
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "libx264"]));
+    }
+
+    #[test]
+    fn falls_back_to_software_when_hardware_encoding_not_requested() {
+        let mut project = sample_project();
+        project.compress.use_hardware_encoding = false;
+        let hardware = HardwareEncoders {
+            h264_nvenc: true,
+            av1_nvenc: true,
+        };
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), hardware);
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "libx264"]));
+    }
+
+    #[test]
+    fn uses_av1_nvenc_when_requested_and_available() {
+        let mut project = sample_project();
+        project.compress.codec = VideoCodec::Av1;
+        project.compress.use_hardware_encoding = true;
+        let hardware = HardwareEncoders {
+            h264_nvenc: false,
+            av1_nvenc: true,
+        };
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), hardware);
+        assert!(args.windows(2).any(|pair| pair == ["-c:v", "av1_nvenc"]));
+        assert!(!args.contains(&"libaom-av1".to_string()));
+    }
+
+    #[test]
     fn muted_audio_uses_an_flag() {
         let mut project = sample_project();
         project.audio.muted = true;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.contains(&"-an".to_string()));
         assert!(!args.contains(&"-af".to_string()));
     }
@@ -283,7 +395,7 @@ mod tests {
         let mut project = sample_project();
         project.audio.track_index = Some(1);
         project.audio.normalize = true;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:v:0"]));
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:a:1"]));
         assert!(args.iter().any(|argument| argument.contains("loudnorm")));
@@ -317,7 +429,7 @@ mod tests {
     fn merge_tracks_mixes_every_stream_via_filter_complex() {
         let mut project = with_two_audio_streams(sample_project());
         project.audio.merge_tracks = true;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         let filter_index = args
             .iter()
             .position(|argument| argument == "-filter_complex")
@@ -336,7 +448,7 @@ mod tests {
         let mut project = with_two_audio_streams(sample_project());
         project.audio.merge_tracks = true;
         project.audio.normalize = true;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         let filter = &args[args
             .iter()
             .position(|argument| argument == "-filter_complex")
@@ -351,7 +463,7 @@ mod tests {
         let mut project = sample_project();
         project.audio.merge_tracks = true;
         project.audio.track_index = Some(0);
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(!args.contains(&"-filter_complex".to_string()));
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:a:0"]));
     }
@@ -360,7 +472,7 @@ mod tests {
     fn disabled_compression_uses_quality_encode_without_target_bitrate() {
         let mut project = sample_project();
         project.set_tool_enabled(crate::ToolKind::Compress, false);
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         assert!(!args.contains(&"-b:v".to_string()));
         assert!(args.windows(2).any(|pair| pair == ["-crf", "18"]));
     }
@@ -370,7 +482,7 @@ mod tests {
         let mut project = sample_project();
         project.crop.width = 1367;
         project.crop.height = 767;
-        let args = build_export_args(&project, Path::new("/tmp/output.mp4"));
+        let args = build_export_args(&project, Path::new("/tmp/output.mp4"), HardwareEncoders::default());
         let filter = &args[args.iter().position(|arg| arg == "-vf").unwrap() + 1];
         assert!(filter.starts_with("crop=1367:767:0:0,scale=1366:766"));
     }

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use clipforge_core::export::build_export_args;
+use clipforge_core::export::{build_export_args, HardwareEncoders};
 use clipforge_core::panels::{CompressState, CropState, ResolutionPreset, ResolutionState};
 use clipforge_core::timeline::{ClipBounds, Timestamp};
 use clipforge_core::Project;
@@ -233,6 +233,9 @@ impl WebProject {
             codec: to_js(parse_codec(codec))?,
             extra_quality,
             tolerance_percent: tolerance_percent.min(100),
+            // The browser export path always encodes in software — there's
+            // no hardware-encoder access from within ffmpeg.wasm.
+            use_hardware_encoding: false,
         };
         Ok(())
     }
@@ -253,7 +256,7 @@ impl WebProject {
         }
         let mut project = self.inner.clone();
         project.source_path = PathBuf::from(input_name);
-        let mut args = build_export_args(&project, Path::new(output_name));
+        let mut args = build_export_args(&project, Path::new(output_name), HardwareEncoders::default());
         if let Some(index) = args.iter().position(|argument| argument == "-progress") {
             args.drain(index..=(index + 1).min(args.len() - 1));
         }

@@ -50,10 +50,14 @@ fn unique_output_path(
     unreachable!("filename sequence is unbounded")
 }
 
-fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
+fn build_tasks(state: &AppState, directory: &Path, current_only: bool) -> Vec<ExportTask> {
     let mut reserved = HashSet::new();
-    state
-        .queued_projects()
+    let projects: Vec<Project> = if current_only {
+        state.project.clone().into_iter().collect()
+    } else {
+        state.queued_projects()
+    };
+    projects
         .into_iter()
         .map(|project| {
             let compression_enabled = evaluate_pipeline(&project).compression_enabled;
@@ -65,7 +69,7 @@ fn build_tasks(state: &AppState, directory: &Path) -> Vec<ExportTask> {
                 .to_string_lossy()
                 .into_owned();
             ExportTask {
-                job: ExportJob::from_project(&project, output_path),
+                job: ExportJob::from_project(&project, output_path, state.hardware_encoders),
                 duration_ms,
                 label,
                 target_size_bytes: compression_enabled
@@ -120,7 +124,8 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 export.set_result_message(format!("Cannot use export folder: {error}").into());
                 return;
             }
-            let tasks = build_tasks(&state.borrow(), &destination);
+            let current_only = export.get_export_current_only();
+            let tasks = build_tasks(&state.borrow(), &destination, current_only);
             if tasks.is_empty() {
                 export.set_phase(ExportPhase::Failed);
                 export.set_result_message("There are no queued videos to export".into());
@@ -252,7 +257,12 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                     } else {
                         export.set_progress(1.0);
                         export.set_phase(ExportPhase::Success);
-                        export.set_result_message(format!("Exported {task_count} videos").into());
+                        let message = if task_count == 1 {
+                            "Exported 1 video".to_string()
+                        } else {
+                            format!("Exported {task_count} videos")
+                        };
+                        export.set_result_message(message.into());
                     }
                 });
             });

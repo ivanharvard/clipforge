@@ -35,11 +35,22 @@ repo="$workdir/aur-repo"
 
 echo "==> Testing AUR publish for v$version (push=$push)"
 
-git clone ssh://aur@aur.archlinux.org/clipforge.git "$repo" || {
-  mkdir -p "$repo"
-  git -C "$repo" init -b master
-  git -C "$repo" remote add origin ssh://aur@aur.archlinux.org/clipforge.git
-}
+# No "clone fails -> init an empty repo" fallback: AUR clones a brand-new,
+# not-yet-published package name as an empty repo just fine, so a real
+# clone failure here means something's actually wrong (e.g. AUR's own
+# maintenance flakiness) — worth seeing directly rather than silently
+# working around it, same reasoning as release.yml's aur-publish job.
+for attempt in 1 2 3; do
+  if git clone ssh://aur@aur.archlinux.org/clipforge.git "$repo"; then
+    break
+  fi
+  if [ "$attempt" -eq 3 ]; then
+    echo "==> Cloning the AUR repo failed after 3 attempts." >&2
+    exit 1
+  fi
+  rm -rf "$repo"
+  sleep $((attempt * 5))
+done
 
 cp packaging/linux/aur/PKGBUILD "$repo/PKGBUILD"
 sed -i "s/^pkgver=.*/pkgver=$version/" "$repo/PKGBUILD"

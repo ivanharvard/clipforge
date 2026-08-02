@@ -176,28 +176,52 @@ jobs:
 
       - name: Set up SSH for aur.archlinux.org
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur_ci
           chmod 600 ~/.ssh/aur_ci
-          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          # `2>/dev/null` on ssh-keyscan means a failed/interrupted lookup
+          # (e.g. AUR mid-maintenance) silently produces an empty file
+          # rather than an error — `test -s` turns that into a loud failure
+          # here instead of a confusing "Host key verification failed"
+          # several steps later.
+          ssh-keyscan -t ed25519 aur.archlinux.org > ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           cat > ~/.ssh/config <<'EOF'
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur_ci
             User aur
-            StrictHostKeyChecking accept-new
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
           EOF
           chmod 600 ~/.ssh/config
 
-      # AUR lazily creates an empty repo the first time any valid package
-      # name is cloned — there's no separate "create the package" step, but
-      # the fallback below stays as a defensive no-op if that ever changes.
+      # No "|| create an empty repo" fallback: AUR clones a brand-new,
+      # not-yet-published package name as an empty repo just fine (that's
+      # the documented way to bootstrap a new AUR package), so a clone
+      # failure here always means a real problem — most likely AUR's own
+      # maintenance flakiness, confirmed by direct reproduction to fail
+      # unpredictably at different stages (host-key handshake, or later at
+      # the git operation itself) from run to run. The old fallback
+      # silently converted that into a bogus local-only commit that only
+      # failed later at push, hiding the real error. A few retries with
+      # backoff are worth it for exactly that observed flakiness, but
+      # give up loudly rather than papering over a persistent failure.
       - name: Clone the AUR package repo
         run: |
-          git clone ssh://aur@aur.archlinux.org/clipforge.git aur-repo || {
-            mkdir aur-repo
-            git -C aur-repo init -b master
-            git -C aur-repo remote add origin ssh://aur@aur.archlinux.org/clipforge.git
-          }
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if git clone ssh://aur@aur.archlinux.org/clipforge.git aur-repo; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Cloning the AUR repo failed after 3 attempts."
+              exit 1
+            fi
+            rm -rf aur-repo
+            sleep $((attempt * 20))
+          done
 
       - name: Update PKGBUILD and regenerate .SRCINFO
         run: |
@@ -217,6 +241,7 @@ jobs:
 
       - name: Commit and push to AUR
         run: |
+          set -euo pipefail
           cd aur-repo
           # The previous step's `chown -R builder:builder aur-repo` (needed
           # so makepkg, which refuses to run as root, could operate on it)
@@ -236,4 +261,13 @@ jobs:
             exit 0
           fi
           git commit -m "Update to ${{ needs.verify-version.outputs.version }}"
-          git push origin HEAD:master
+          for attempt in 1 2 3; do
+            if git push origin HEAD:master; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Pushing to AUR failed after 3 attempts."
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done

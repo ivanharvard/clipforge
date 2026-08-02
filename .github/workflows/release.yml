@@ -218,6 +218,16 @@ jobs:
       - name: Commit and push to AUR
         run: |
           cd aur-repo
+          # The previous step's `chown -R builder:builder aur-repo` (needed
+          # so makepkg, which refuses to run as root, could operate on it)
+          # leaves .git owned by builder, but this step runs as root — a
+          # UID mismatch git's "dubious ownership" safety check rejects.
+          # Oddly, `git config` (unlike `git add`/`git status`) surfaces
+          # that specific case as "fatal: not in a git directory" rather
+          # than the more informative dubious-ownership message, which is
+          # what actually broke this job — confirmed by reproducing locally
+          # against the same archlinux:base-devel image.
+          git config --global --add safe.directory "$PWD"
           git config user.name "ClipForge CI"
           git config user.email "actions@github.com"
           git add PKGBUILD .SRCINFO

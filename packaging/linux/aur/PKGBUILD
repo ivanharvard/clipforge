@@ -8,42 +8,72 @@
 # package repo only ever contains PKGBUILD + .SRCINFO, so this one has to
 # download its own copy of the source instead of assuming one exists.
 #
+# Split package, mirroring packaging/linux/pacman/PKGBUILD: `clipforge` is
+# the default build, `clipforge-kde` additionally compiles Slint's "qt"
+# style in (the `qt-style` Cargo feature) so std-widgets controls render via
+# the user's actual KDE QStyle. `yay -S clipforge-kde` installs the variant
+# directly — pacman has no pip-style `pkg[extra]` syntax, but a split
+# package from one PKGBUILD is the equivalent: one source recipe, one clean
+# install command per variant.
+#
 # Before publishing a new version:
 #   1. Bump pkgver to match the vX.Y.Z tag you're packaging (reset pkgrel to 1).
 #   2. Run `updpkgsums` in this directory to replace the sha256sums placeholder
 #      with the real hash of that tag's source tarball.
 #   3. Run `makepkg --printsrcinfo > .SRCINFO` and commit both files.
-pkgname=clipforge
+pkgbase=clipforge
+pkgname=('clipforge' 'clipforge-kde')
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="Quick single-clip video trimmer"
 arch=('x86_64')
 url="https://github.com/ivanharvard/clipforge"
 license=('MIT')
-depends=('ffmpeg' 'mpv')
-makedepends=('cargo')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/ivanharvard/clipforge/archive/refs/tags/v$pkgver.tar.gz")
+makedepends=('cargo' 'qt6-base')
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/ivanharvard/clipforge/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP') # replace by running `updpkgsums` here once the tag exists
+# See packaging/linux/pacman/PKGBUILD for why LTO is disabled: it corrupts
+# qttypes' C++ codegen in the clipforge-kde build.
+options=('!lto')
 
 prepare() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgbase-$pkgver"
   # AUR's own build tooling disallows network access inside build(); prepare()
   # still has it, so fetch every crate here and let build() run with --frozen.
   cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
 }
 
 build() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgbase-$pkgver"
   cargo build --frozen --release --bin clipforge-app
+  cargo build --frozen --release --bin clipforge-app --features qt-style --target-dir target/qt-style
 }
 
-package() {
-  cd "$pkgname-$pkgver"
-  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+_install_common() {
   install -Dm644 packaging/linux/appimage/clipforge.desktop \
     "$pkgdir/usr/share/applications/clipforge.desktop"
   for size in 16 24 32 48 64 128 256 512; do
     install -Dm644 "packaging/shared/icons/clipforge-${size}.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/clipforge.png"
   done
+}
+
+package_clipforge() {
+  pkgdesc="Quick single-clip video trimmer"
+  depends=('ffmpeg' 'mpv')
+  conflicts=('clipforge-kde')
+
+  cd "$pkgbase-$pkgver"
+  install -Dm755 target/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  _install_common
+}
+
+package_clipforge-kde() {
+  pkgdesc="Quick single-clip video trimmer, with native KDE Application Style controls"
+  depends=('ffmpeg' 'mpv' 'qt6-base')
+  provides=('clipforge')
+  conflicts=('clipforge')
+
+  cd "$pkgbase-$pkgver"
+  install -Dm755 target/qt-style/release/clipforge-app "$pkgdir/usr/bin/clipforge-app"
+  _install_common
 }

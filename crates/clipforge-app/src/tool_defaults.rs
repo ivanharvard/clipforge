@@ -1,4 +1,6 @@
-use clipforge_core::panels::{AudioState, CompressState, CropDefault, ResolutionState, TransformState};
+use clipforge_core::panels::{
+    AudioState, CompressState, CropDefault, ResolutionState, TransformState,
+};
 
 /// Session-scoped "last used" values per tool, applied to newly-queued
 /// videos and (when a persisted default exists) to a tool's Reset action.

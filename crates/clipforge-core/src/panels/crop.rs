@@ -70,10 +70,14 @@ impl CropDefault {
     }
 
     pub fn resolve(&self, source_width: u32, source_height: u32) -> CropState {
-        let width = ((self.width_frac * source_width as f32).round() as u32).clamp(1, source_width.max(1));
-        let height = ((self.height_frac * source_height as f32).round() as u32).clamp(1, source_height.max(1));
-        let x = ((self.x_frac * source_width as f32).round() as u32).min(source_width.saturating_sub(width));
-        let y = ((self.y_frac * source_height as f32).round() as u32).min(source_height.saturating_sub(height));
+        let width =
+            ((self.width_frac * source_width as f32).round() as u32).clamp(1, source_width.max(1));
+        let height = ((self.height_frac * source_height as f32).round() as u32)
+            .clamp(1, source_height.max(1));
+        let x = ((self.x_frac * source_width as f32).round() as u32)
+            .min(source_width.saturating_sub(width));
+        let y = ((self.y_frac * source_height as f32).round() as u32)
+            .min(source_height.saturating_sub(height));
         CropState {
             x,
             y,
@@ -143,7 +147,16 @@ mod tests {
         let default = CropDefault::from_state(&crop, 1920, 1080);
         // ...should map to the right half of a differently-sized source too.
         let resolved = default.resolve(640, 360);
-        assert_eq!(resolved, CropState { x: 320, y: 0, width: 320, height: 360, aspect_locked: false });
+        assert_eq!(
+            resolved,
+            CropState {
+                x: 320,
+                y: 0,
+                width: 320,
+                height: 360,
+                aspect_locked: false
+            }
+        );
     }
 
     #[test]

@@ -106,7 +106,8 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
                 let Some(project) = &app_state.project else {
                     return;
                 };
-                let default = app_state.resolve_crop_default(project.source_width, project.source_height);
+                let default =
+                    app_state.resolve_crop_default(project.source_width, project.source_height);
                 let Some(project) = &mut app_state.project else {
                     return;
                 };

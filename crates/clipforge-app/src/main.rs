@@ -256,7 +256,11 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    bindings::sync_all_panels_from_project(&app, project, app_state.hardware_encoders);
+                    bindings::sync_all_panels_from_project(
+                        &app,
+                        project,
+                        app_state.hardware_encoders,
+                    );
                 }
                 let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);
@@ -277,7 +281,11 @@ fn main() -> anyhow::Result<()> {
                     return;
                 }
                 if let Some(project) = &app_state.project {
-                    bindings::sync_all_panels_from_project(&app, project, app_state.hardware_encoders);
+                    bindings::sync_all_panels_from_project(
+                        &app,
+                        project,
+                        app_state.hardware_encoders,
+                    );
                 }
                 let _ = app_state.apply_project_preview();
                 bindings::update_undo_redo_buttons(&app, &app_state);

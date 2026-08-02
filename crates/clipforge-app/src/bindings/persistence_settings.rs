@@ -63,10 +63,9 @@ pub fn wire(app: &App, state: &Rc<RefCell<AppState>>) {
 
         let persistence = app.global::<PersistenceSettingsState>();
         let rows = persistence.get_rows();
-        if let Some(row_index) = (0..rows.row_count()).find(|&index| {
-            rows.row_data(index)
-                .is_some_and(|row| row.kind == kind_str)
-        }) {
+        if let Some(row_index) = (0..rows.row_count())
+            .find(|&index| rows.row_data(index).is_some_and(|row| row.kind == kind_str))
+        {
             if let Some(mut row) = rows.row_data(row_index) {
                 row.mode_index = mode_index;
                 rows.set_row_data(row_index, row);

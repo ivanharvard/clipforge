@@ -256,7 +256,11 @@ impl WebProject {
         }
         let mut project = self.inner.clone();
         project.source_path = PathBuf::from(input_name);
-        let mut args = build_export_args(&project, Path::new(output_name), HardwareEncoders::default());
+        let mut args = build_export_args(
+            &project,
+            Path::new(output_name),
+            HardwareEncoders::default(),
+        );
         if let Some(index) = args.iter().position(|argument| argument == "-progress") {
             args.drain(index..=(index + 1).min(args.len() - 1));
         }

@@ -3,6 +3,7 @@ mod export;
 mod panels;
 mod persistence_settings;
 mod playback;
+mod shortcuts;
 mod sync;
 mod timeline;
 
@@ -24,4 +25,5 @@ pub fn wire_all(app: &App, state: &Rc<RefCell<AppState>>) {
     panels::wire(app, state);
     appearance::wire(app, state);
     persistence_settings::wire(app, state);
+    shortcuts::wire(app, state);
 }

@@ -213,3 +213,32 @@ export global PersistenceSettingsState {
 
     callback mode-selected(string, int);
 }
+
+export struct ShortcutRow {
+    action: string,
+    label: string,
+    binding-text: string,
+}
+
+export global ShortcutsState {
+    in-out property <[ShortcutRow]> rows: [];
+    // Index into `rows` currently being (re)recorded, or -1 when nothing is
+    // being recorded. Drives the capture overlay in app.slint.
+    in-out property <int> listening-index: -1;
+
+    callback row-clicked(int);
+    // text, ctrl, shift, alt, meta — from the capture overlay's key-pressed.
+    callback key-captured(string, bool, bool, bool, bool);
+    // button-ordinal (0=left,1=right,2=middle,3=back,4=forward,5=other),
+    // ctrl, shift, alt, meta — from the capture overlay's pointer-event.
+    callback mouse-captured(int, bool, bool, bool, bool);
+    // Escape while listening: closes the overlay, binding unchanged.
+    callback listening-cancelled();
+    callback reset-defaults-clicked();
+
+    // Global dispatch: the app's root FocusScope / mouse-catcher forward
+    // every key-press / click here; Rust returns whether a configured
+    // shortcut matched and was handled.
+    callback dispatch-key(string, bool, bool, bool, bool) -> bool;
+    callback dispatch-mouse(int, bool, bool, bool, bool) -> bool;
+}

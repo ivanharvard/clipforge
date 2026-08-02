@@ -360,6 +360,20 @@ impl AppState {
         self.save_settings();
     }
 
+    pub fn set_shortcut(
+        &mut self,
+        action: crate::settings::ShortcutAction,
+        trigger: crate::settings::ShortcutTrigger,
+    ) {
+        self.settings.set_shortcut(action, trigger);
+        self.save_settings();
+    }
+
+    pub fn reset_shortcuts_to_default(&mut self) {
+        self.settings.reset_shortcuts_to_default();
+        self.save_settings();
+    }
+
     pub fn set_compression_apply_all(&mut self, enabled: bool) {
         self.settings.compression_apply_all = enabled;
         if enabled {

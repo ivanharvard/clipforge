@@ -1,0 +1,54 @@
+import { Theme } from "../theme.slint";
+
+// A row showing a shortcut's label and its current binding. Clicking it
+// starts "listening" (owned by the caller via `listening`) — the actual key
+// / mouse capture happens in a separate app-wide overlay (see app.slint),
+// since a single row can't see input events outside its own bounds.
+export component KeyCaptureField inherits Rectangle {
+    in property <string> label;
+    in property <string> binding-text;
+    in property <bool> listening;
+    callback clicked;
+
+    height: 40px;
+    border-radius: Theme.radius-control;
+    border-width: 1px;
+    border-color: root.listening ? Theme.accent : Theme.border-color;
+    background: root.listening ? Theme.accent.with-alpha(0.12) : (touch.has-hover ? Theme.surface-alt : transparent);
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        spacing: Theme.space-2;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.label;
+            color: Theme.text-primary;
+            font-size: Theme.text-sm;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Rectangle {
+            width: 120px;
+            height: 26px;
+            border-radius: Theme.radius-control;
+            border-width: 1px;
+            border-color: Theme.border-color;
+            background: Theme.surface;
+
+            Text {
+                text: root.listening ? "Press a key…" : root.binding-text;
+                color: root.listening ? Theme.accent : Theme.text-secondary;
+                font-size: Theme.text-xs;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}

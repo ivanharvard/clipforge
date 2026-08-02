@@ -31,6 +31,113 @@ pub enum PersistenceMode {
     Never,
 }
 
+/// The five trim/playback actions that can be bound to a key or mouse click
+/// from the Settings dialog's Shortcuts tab.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ShortcutAction {
+    TrimStart,
+    TrimEnd,
+    FrameBack,
+    FrameForward,
+    PlayPause,
+}
+
+impl ShortcutAction {
+    pub const ALL: [Self; 5] = [
+        Self::TrimStart,
+        Self::TrimEnd,
+        Self::FrameBack,
+        Self::FrameForward,
+        Self::PlayPause,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::TrimStart => "trim-start",
+            Self::TrimEnd => "trim-end",
+            Self::FrameBack => "frame-back",
+            Self::FrameForward => "frame-forward",
+            Self::PlayPause => "play-pause",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::TrimStart => "Set Trim Start",
+            Self::TrimEnd => "Set Trim End",
+            Self::FrameBack => "One Frame Back",
+            Self::FrameForward => "One Frame Forward",
+            Self::PlayPause => "Play/Pause",
+        }
+    }
+}
+
+/// Mirrors `slint`'s `PointerEventButton` so mouse-click bindings can be
+/// stored and (de)serialized without depending on Slint types here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MouseButtonKind {
+    Left,
+    Right,
+    Middle,
+    Back,
+    Forward,
+    Other,
+}
+
+/// What triggers a bound shortcut action: a key press (with modifiers) or a
+/// mouse button click (with modifiers).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum ShortcutTrigger {
+    Key {
+        /// The raw Slint `KeyEvent.text` value — a printable character for
+        /// most keys, or one of Slint's private-use-area code points for
+        /// named keys (arrows, space, escape, etc.).
+        text: String,
+        #[serde(default)]
+        ctrl: bool,
+        #[serde(default)]
+        shift: bool,
+        #[serde(default)]
+        alt: bool,
+        #[serde(default)]
+        meta: bool,
+    },
+    Mouse {
+        button: MouseButtonKind,
+        #[serde(default)]
+        ctrl: bool,
+        #[serde(default)]
+        shift: bool,
+        #[serde(default)]
+        alt: bool,
+        #[serde(default)]
+        meta: bool,
+    },
+}
+
+fn key_trigger(text: &str) -> ShortcutTrigger {
+    ShortcutTrigger::Key {
+        text: text.to_string(),
+        ctrl: false,
+        shift: false,
+        alt: false,
+        meta: false,
+    }
+}
+
+fn default_shortcuts() -> HashMap<ShortcutAction, ShortcutTrigger> {
+    HashMap::from([
+        (ShortcutAction::TrimStart, key_trigger("[")),
+        (ShortcutAction::TrimEnd, key_trigger("]")),
+        (ShortcutAction::FrameBack, key_trigger("j")),
+        (ShortcutAction::FrameForward, key_trigger("l")),
+        (ShortcutAction::PlayPause, key_trigger("k")),
+    ])
+}
+
 fn default_persistence_modes() -> HashMap<ToolKind, PersistenceMode> {
     ToolKind::ALL
         .into_iter()
@@ -87,6 +194,8 @@ pub struct AppSettings {
     theme_mode: ThemeMode,
     #[serde(default = "default_persistence_modes")]
     persistence_modes: HashMap<ToolKind, PersistenceMode>,
+    #[serde(default = "default_shortcuts")]
+    shortcuts: HashMap<ShortcutAction, ShortcutTrigger>,
     #[serde(default)]
     transform_default: TransformState,
     #[serde(default)]
@@ -109,6 +218,7 @@ impl Default for AppSettings {
             compression_apply_all: true,
             theme_mode: ThemeMode::Dark,
             persistence_modes: default_persistence_modes(),
+            shortcuts: default_shortcuts(),
             transform_default: TransformState::default(),
             crop_default: None,
             resolution_default: None,
@@ -172,6 +282,22 @@ impl AppSettings {
 
     pub fn set_persistence_mode(&mut self, kind: ToolKind, mode: PersistenceMode) {
         self.persistence_modes.insert(kind, mode);
+    }
+
+    pub fn shortcut(&self, action: ShortcutAction) -> ShortcutTrigger {
+        self.shortcuts.get(&action).cloned().unwrap_or_else(|| {
+            default_shortcuts()
+                .remove(&action)
+                .expect("all actions have a default")
+        })
+    }
+
+    pub fn set_shortcut(&mut self, action: ShortcutAction, trigger: ShortcutTrigger) {
+        self.shortcuts.insert(action, trigger);
+    }
+
+    pub fn reset_shortcuts_to_default(&mut self) {
+        self.shortcuts = default_shortcuts();
     }
 
     pub fn transform_default(&self) -> TransformState {
@@ -320,5 +446,97 @@ mod tests {
             PersistenceMode::OnAppReset
         );
         assert!(restored.crop_default().is_none());
+    }
+
+    #[test]
+    fn shortcut_defaults_match_the_documented_scheme() {
+        let settings = AppSettings::default();
+        assert_eq!(
+            settings.shortcut(ShortcutAction::TrimStart),
+            key_trigger("[")
+        );
+        assert_eq!(settings.shortcut(ShortcutAction::TrimEnd), key_trigger("]"));
+        assert_eq!(
+            settings.shortcut(ShortcutAction::FrameBack),
+            key_trigger("j")
+        );
+        assert_eq!(
+            settings.shortcut(ShortcutAction::FrameForward),
+            key_trigger("l")
+        );
+        assert_eq!(
+            settings.shortcut(ShortcutAction::PlayPause),
+            key_trigger("k")
+        );
+    }
+
+    #[test]
+    fn shortcuts_round_trip_through_json() {
+        let mut settings = AppSettings::default();
+        settings.set_shortcut(
+            ShortcutAction::PlayPause,
+            ShortcutTrigger::Mouse {
+                button: MouseButtonKind::Back,
+                ctrl: false,
+                shift: false,
+                alt: false,
+                meta: false,
+            },
+        );
+        settings.set_shortcut(
+            ShortcutAction::FrameForward,
+            ShortcutTrigger::Key {
+                text: "l".into(),
+                ctrl: true,
+                shift: false,
+                alt: false,
+                meta: false,
+            },
+        );
+
+        let serialized = serde_json::to_string(&settings).expect("serialize settings");
+        let restored: AppSettings =
+            serde_json::from_str(&serialized).expect("deserialize settings");
+        assert_eq!(
+            restored.shortcut(ShortcutAction::PlayPause),
+            ShortcutTrigger::Mouse {
+                button: MouseButtonKind::Back,
+                ctrl: false,
+                shift: false,
+                alt: false,
+                meta: false,
+            }
+        );
+        assert_eq!(
+            restored.shortcut(ShortcutAction::FrameForward),
+            ShortcutTrigger::Key {
+                text: "l".into(),
+                ctrl: true,
+                shift: false,
+                alt: false,
+                meta: false,
+            }
+        );
+        // Untouched actions keep the same defaults as a freshly-created settings file.
+        assert_eq!(
+            restored.shortcut(ShortcutAction::TrimStart),
+            key_trigger("[")
+        );
+    }
+
+    #[test]
+    fn settings_without_shortcut_data_fall_back_to_defaults() {
+        // Simulates loading a settings.json written before this feature
+        // existed — the new field must not be required.
+        let legacy_json = serde_json::to_string(&serde_json::json!({
+            "compression_apply_all": true,
+        }))
+        .expect("build legacy json");
+        let restored: AppSettings =
+            serde_json::from_str(&legacy_json).expect("deserialize legacy settings");
+        assert_eq!(
+            restored.shortcut(ShortcutAction::PlayPause),
+            key_trigger("k")
+        );
     }
 }

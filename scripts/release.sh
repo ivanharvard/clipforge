@@ -62,6 +62,10 @@ if git rev-parse "$tag" >/dev/null 2>&1; then
 fi
 
 echo
+echo "Running clippy..."
+cargo clippy --workspace --all-targets -- -D warnings
+
+echo
 echo "Formatting the workspace..."
 cargo fmt --all
 

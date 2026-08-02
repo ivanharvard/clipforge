@@ -44,6 +44,34 @@ fn apply_typed_trim(app: &App, state: &Rc<RefCell<AppState>>, text: &str, update
     sync_trim_text(app, state);
 }
 
+/// Sets the trim in/out point to the current playhead position — the
+/// configurable Trim Start/End shortcuts' action. Unlike `apply_typed_trim`,
+/// the playhead doesn't move, so no `seek_to` call is needed.
+pub fn set_trim_bound_at_playhead(app: &App, state: &Rc<RefCell<AppState>>, is_in_point: bool) {
+    let mut app_state = state.borrow_mut();
+    if app_state.project.is_none() {
+        return;
+    }
+    let Ok(position_secs) = app_state.player.position_secs() else {
+        return;
+    };
+    app_state.push_undo_snapshot();
+    {
+        let project = app_state.project.as_mut().expect("project checked above");
+        let timestamp =
+            clipforge_core::timeline::Timestamp::from_ms((position_secs * 1000.0).max(0.0) as u64);
+        if is_in_point {
+            project.clip_bounds.set_in_point(timestamp);
+        } else {
+            project.clip_bounds.set_out_point(timestamp);
+        }
+    }
+    crate::bindings::update_undo_redo_buttons(app, &app_state);
+    drop(app_state);
+    sync_playback_state(app, state);
+    sync_trim_text(app, state);
+}
+
 /// Pushes the loaded project's clip bounds and current playback position
 /// into `PlaybackState` so the scrubber bar reflects them. Called after
 /// loading a clip, and on every tick of `video_surface`'s frame timer so

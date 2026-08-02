@@ -15,6 +15,8 @@ import {
     AppearanceState,
     PersistenceSettingsState,
     ToolPersistenceRow,
+    ShortcutsState,
+    ShortcutRow,
 } from "state.slint";
 import { IconButton } from "components/icon_button.slint";
 import { VideoPreview } from "preview/video_preview.slint";
@@ -45,6 +47,8 @@ export {
     AppearanceState,
     PersistenceSettingsState,
     ToolPersistenceRow,
+    ShortcutsState,
+    ShortcutRow,
 }
 
 // Root window: branded command bar, queue, and a unified editor shell.
@@ -73,6 +77,22 @@ export component App inherits Window {
     callback undo-requested;
     callback redo-requested;
 
+    pure function mouse-button-ordinal(button: PointerEventButton) -> int {
+        if (button == PointerEventButton.left) {
+            0
+        } else if (button == PointerEventButton.right) {
+            1
+        } else if (button == PointerEventButton.middle) {
+            2
+        } else if (button == PointerEventButton.back) {
+            3
+        } else if (button == PointerEventButton.forward) {
+            4
+        } else {
+            5
+        }
+    }
+
     FocusScope {
         // Grabs focus on startup so Ctrl/Cmd+Z work without first clicking
         // into the window; individual controls (text fields, spin boxes)
@@ -87,8 +107,39 @@ export component App inherits Window {
                     root.undo-requested();
                 }
                 accept
+            } else if (ShortcutsState.dispatch-key(
+                event.text,
+                event.modifiers.control,
+                event.modifiers.shift,
+                event.modifiers.alt,
+                event.modifiers.meta,
+            )) {
+                accept
             } else {
                 reject
+            }
+        }
+
+        // Bottom-most layer: catches clicks over otherwise-empty space (e.g.
+        // the loaded video frame, which has no TouchArea of its own) for
+        // mouse-button-bound shortcuts. Sitting behind every other element
+        // here means buttons, drag handles, and dialogs all still claim
+        // their own clicks first — this only fires when nothing else does.
+        TouchArea {
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    ShortcutsState.dispatch-mouse(
+                        root.mouse-button-ordinal(event.button),
+                        event.modifiers.control,
+                        event.modifiers.shift,
+                        event.modifiers.alt,
+                        event.modifiers.meta,
+                    );
+                }
             }
         }
 
@@ -214,6 +265,44 @@ export component App inherits Window {
         SettingsDialog {
             width: 420px;
             height: 520px;
+        }
+    }
+
+    // Transparent full-window capture layer for recording a new shortcut
+    // binding, shown above everything (including the settings dialog) so it
+    // sees the very next key press or mouse click regardless of what's
+    // currently focused or hovered.
+    if ShortcutsState.listening-index >= 0: Rectangle {
+        capture-focus := FocusScope {
+            init => { self.focus(); }
+            key-pressed(event) => {
+                if (event.text == Key.Escape) {
+                    ShortcutsState.listening-cancelled();
+                } else {
+                    ShortcutsState.key-captured(
+                        event.text,
+                        event.modifiers.control,
+                        event.modifiers.shift,
+                        event.modifiers.alt,
+                        event.modifiers.meta,
+                    );
+                }
+                accept
+            }
+        }
+
+        TouchArea {
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    ShortcutsState.mouse-captured(
+                        root.mouse-button-ordinal(event.button),
+                        event.modifiers.control,
+                        event.modifiers.shift,
+                        event.modifiers.alt,
+                        event.modifiers.meta,
+                    );
+                }
+            }
         }
     }
 }

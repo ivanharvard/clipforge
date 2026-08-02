@@ -1,6 +1,7 @@
 import { Theme } from "../theme.slint";
-import { AppearanceState, PersistenceSettingsState } from "../state.slint";
+import { AppearanceState, PersistenceSettingsState, ShortcutsState } from "../state.slint";
 import { RadioOption } from "../components/radio_option.slint";
+import { KeyCaptureField } from "../components/key_capture_field.slint";
 import { Button, ScrollView } from "std-widgets.slint";
 
 component TabButton inherits Rectangle {
@@ -92,6 +93,11 @@ export component SettingsDialog inherits Rectangle {
                 selected: AppearanceState.active-tab == 1;
                 clicked => { AppearanceState.active-tab = 1; scroll.viewport-y = 0px; }
             }
+            TabButton {
+                label: "Shortcuts";
+                selected: AppearanceState.active-tab == 2;
+                clicked => { AppearanceState.active-tab = 2; scroll.viewport-y = 0px; }
+            }
             Rectangle {}
         }
 
@@ -177,6 +183,23 @@ export component SettingsDialog inherits Rectangle {
                         mode-index: row.mode-index;
                     }
                 }
+
+                if AppearanceState.active-tab == 2: VerticalLayout {
+                    spacing: Theme.space-2;
+
+                    Text {
+                        text: "Click a shortcut, then press a key\n(with optional Ctrl/Shift/Alt) or click a\nmouse button. Press Escape to leave it\nunchanged.";
+                        color: Theme.text-secondary;
+                        font-size: Theme.text-xs;
+                    }
+
+                    for row[index] in ShortcutsState.rows: KeyCaptureField {
+                        label: row.label;
+                        binding-text: row.binding-text;
+                        listening: ShortcutsState.listening-index == index;
+                        clicked => { ShortcutsState.row-clicked(index); }
+                    }
+                }
             }
         }
 
@@ -184,6 +207,12 @@ export component SettingsDialog inherits Rectangle {
         // always visible regardless of how tall the tab content grows.
         HorizontalLayout {
             alignment: end;
+            spacing: Theme.space-2;
+
+            if AppearanceState.active-tab == 2: Button {
+                text: "Reset to Defaults";
+                clicked => { ShortcutsState.reset-defaults-clicked(); }
+            }
 
             Button {
                 text: "Close";

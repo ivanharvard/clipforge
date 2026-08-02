@@ -104,6 +104,13 @@ fn read_kde_palette() -> Option<KdePalette> {
     let mut window_fg_inactive = None;
     let mut view_bg = None;
     let mut accent = None;
+    // Fallback accent when the color scheme doesn't set `[General]
+    // AccentColor` explicitly (common — "Accent Color" is a relatively
+    // recent Plasma feature, and plenty of schemes still leave it unset).
+    // Native widgets fall back to the Highlight/Selection color for accent
+    // emphasis in that case, so this mirrors that instead of leaving
+    // ClipForge's branded orange in place.
+    let mut selection_bg = None;
 
     for line in contents.lines() {
         let line = line.trim();
@@ -114,7 +121,7 @@ fn read_kde_palette() -> Option<KdePalette> {
         let Some((key, value)) = line.split_once('=') else {
             continue;
         };
-        let color = parse_rgb_triplet(value);
+        let color = parse_kde_color(value);
         match (section.as_str(), key) {
             ("Colors:Window", "BackgroundNormal") => window_bg = color,
             ("Colors:Window", "BackgroundAlternate") => window_bg_alt = color,
@@ -122,6 +129,7 @@ fn read_kde_palette() -> Option<KdePalette> {
             ("Colors:Window", "ForegroundInactive") => window_fg_inactive = color,
             ("Colors:View", "BackgroundNormal") => view_bg = color,
             ("General", "AccentColor") => accent = color,
+            ("Colors:Selection", "BackgroundNormal") => selection_bg = color,
             _ => {}
         }
     }
@@ -133,13 +141,26 @@ fn read_kde_palette() -> Option<KdePalette> {
         text_primary: window_fg?,
         text_secondary: window_fg_inactive?,
         border: window_bg_alt?,
-        accent,
+        accent: accent.or(selection_bg),
     })
 }
 
-/// Parses a kdeglobals color value, e.g. `"54,54,54"` — three comma-separated
-/// 0-255 components, no other format is written by KDE for `Colors:*` keys.
-fn parse_rgb_triplet(value: &str) -> Option<Color> {
+/// Parses a kdeglobals color value. Older Plasma versions write three
+/// comma-separated 0-255 components (`"54,54,54"`); newer ones write
+/// `#RRGGBB` hex instead — both are seen in the wild, so both are accepted.
+fn parse_kde_color(value: &str) -> Option<Color> {
+    if let Some(hex) = value.strip_prefix('#') {
+        if hex.len() != 6 {
+            return None;
+        }
+        let rgb = u32::from_str_radix(hex, 16).ok()?;
+        return Some(Color::from_rgb_u8(
+            ((rgb >> 16) & 0xFF) as u8,
+            ((rgb >> 8) & 0xFF) as u8,
+            (rgb & 0xFF) as u8,
+        ));
+    }
+
     let mut parts = value.split(',').map(str::trim);
     let r: u8 = parts.next()?.parse().ok()?;
     let g: u8 = parts.next()?.parse().ok()?;
@@ -148,4 +169,32 @@ fn parse_rgb_triplet(value: &str) -> Option<Color> {
         return None;
     }
     Some(Color::from_rgb_u8(r, g, b))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_hex_colors() {
+        let color = parse_kde_color("#121413").expect("valid hex color");
+        assert_eq!(
+            (color.red(), color.green(), color.blue()),
+            (0x12, 0x14, 0x13)
+        );
+    }
+
+    #[test]
+    fn parses_legacy_comma_separated_colors() {
+        let color = parse_kde_color("54,54,54").expect("valid comma-separated color");
+        assert_eq!((color.red(), color.green(), color.blue()), (54, 54, 54));
+    }
+
+    #[test]
+    fn rejects_malformed_colors() {
+        assert!(parse_kde_color("#12").is_none());
+        assert!(parse_kde_color("#gggggg").is_none());
+        assert!(parse_kde_color("54,54").is_none());
+        assert!(parse_kde_color("not-a-color").is_none());
+    }
 }
